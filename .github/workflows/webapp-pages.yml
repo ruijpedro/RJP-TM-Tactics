@@ -1,0 +1,52 @@
+name: Publicar RJP TM Tactics no GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
+      - '.github/workflows/webapp-pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rjp-tm-tactics-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Publicar WebApp
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Compilar WebApp
+        run: npm run build
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+      - name: Enviar versão compilada
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Publicar site
+        id: deploy
+        uses: actions/deploy-pages@v4
