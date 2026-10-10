@@ -1,0 +1,23 @@
+RJP TM TACTICS 1.0.1 — COMPILAR NO GITHUB
+=======================================
+
+Este ZIP está organizado para extrair os FICHEIROS DIRETAMENTE na raiz do repositório.
+Não coloques tudo numa subpasta. A pasta .github tem de ficar na raiz.
+
+1. Cria um repositório GitHub, por exemplo: RJP_TM_Tactics
+2. Extrai o ZIP e carrega os ficheiros e pastas para a RAIZ do repositório.
+   Mantém a pasta OCULTA .github/workflows/ com ambos os ficheiros .yml.
+3. No GitHub: Actions -> Compilar APK Android - RJP TM Tactics -> Run workflow.
+4. Após sinal verde: abre a execução -> Artifacts -> RJP-TM-Tactics-APK-Android.
+5. Extrai o artifact: vais encontrar app-debug.apk. Instala no telemóvel.
+
+PUBLICAR WEBAPP (opcional):
+Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+Actions -> Publicar RJP TM Tactics no GitHub Pages -> Run workflow.
+
+IMPORTANTE:
+- O APK é criado no GitHub, não está pré-compilado no ZIP.
+- Sem uma chave de assinatura persistente, futuras APK podem exigir desinstalar a anterior.
+  Lê a secção 'Atualizar APK sem desinstalar' no README para evitar esse problema.
+- A importação de jogadores do Trophy Manager via WebView é EXPERIMENTAL;
+  os cálculos são estimativas próprias e não fórmulas oficiais.

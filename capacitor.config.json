@@ -1,0 +1,7 @@
+{
+  "appId": "pt.rjp.tmtactics",
+  "appName": "RJP TM Tactics",
+  "webDir": "dist",
+  "android": {"allowMixedContent": false},
+  "plugins": {"SplashScreen": {"launchShowDuration": 0}}
+}
