@@ -1,6 +1,7 @@
+import fs from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parsePositions,normalizePlayer,normalizeRoster,maximumAssignment,compareFormations,analyzeFormation,rankByPosition,rating,styleAdvice,FORMATIONS} from '../src/analysis.js';
+import {parsePositions,normalizePlayer,normalizeRoster,maximumAssignment,compareFormations,analyzeFormation,rankByPosition,rating,styleAdvice,comparePlayersForPosition,suggestPositions,teamPositionSuggestions,FORMATIONS} from '../src/analysis.js';
 import {demoPlayers} from '../src/demo.js';
 import {parseCsv,importText} from '../src/import.js';
 
@@ -42,4 +43,31 @@ test('CSV suporta vírgulas em campos entre aspas e importação',()=>{
  const raw='name,fp,pas,tec,wor\n"Silva, João","M C",16,17,15\n';
  assert.equal(parseCsv(raw)[0].name,'Silva, João');
  assert.equal(importText(raw,'plantel.csv').length,1);
+});
+
+test('comparação por posição indica a vantagem e atributos sem alterar o plantel',()=>{
+ const a=demoPlayers[2],b=demoPlayers[3],snapshot=[a.fp,b.fp];
+ const r=comparePlayersForPosition(a,b,'DC');
+ assert.ok(r);assert.ok(Number.isFinite(r.aScore));assert.ok(Number.isFinite(r.bScore));
+ assert.ok(r.skills.length>3);assert.equal(r.skills[0].key,'mar');
+ assert.equal(r.delta,r.aScore-r.bScore);
+ assert.deepEqual([a.fp,b.fp],snapshot);
+ assert.equal(comparePlayersForPosition(a,a,'DC'),null);
+});
+test('mudança de posição é só proposta; não altera fp nem dados TM',()=>{
+ const player=demoPlayers.find(p=>p.fp==='M C');
+ assert.ok(player);
+ const old=structuredClone(player);
+ const r=suggestPositions(player);
+ assert.ok(r.current);assert.ok(Array.isArray(r.suggestions));
+ assert.ok(r.suggestions.every(s=>s.fit>=0.70));
+ assert.deepEqual(player,old);
+ const all=teamPositionSuggestions(demoPlayers);
+ assert.ok(all.length>0);assert.ok(all.every(s=>s.player&&s.pos));
+});
+test('pipeline Android usa SDK sem pedir pacote legado tools',()=>{
+ const wf=fs.readFileSync(new URL('../.github/workflows/android-apk.yml',import.meta.url),'utf8');
+ assert.match(wf,/setup-android@v4/);
+ assert.match(wf,/packages: 'platform-tools'/);
+ assert.doesNotMatch(wf,/setup-android@v3/);
 });

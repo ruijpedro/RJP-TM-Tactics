@@ -1,6 +1,14 @@
-# RJP TM Tactics — V1.0.1 (Portugal)
+# RJP TM Tactics — V1.1.1 (Portugal)
 
 Aplicação independente **Trophy Manager** para Android (APK construída pelo GitHub Actions) e WebApp/PWA. Projeto desenvolvido para utilização no telemóvel, sem extensões do Chrome ou Edge.
+
+## Correção de compilação V1.1.1
+
+O GitHub Actions falhava em `android-actions/setup-android@v3`: esse action tentava instalar o pacote SDK legado `tools`, que deixou de estar disponível. O workflow utiliza agora `android-actions/setup-android@v4` e solicita apenas `platform-tools`; SDK 35 e build-tools 35 são instalados a seguir.
+
+O `versionCode` da APK é construído a partir da versão semântica e do número da execução, para preservar atualizações quando a assinatura é idêntica. A mudança de versão não elimina a necessidade de reutilizar a mesma chave de assinatura.
+
+**Novidade V1.1:** comparação de dois jogadores por posição, ranking técnico e propostas de mudança de posição apenas informativas. Nenhum dado ou tática é alterado automaticamente no TM.
 
 ## Já implementado
 
@@ -32,7 +40,7 @@ Na WebApp, por razões de segurança dos navegadores, a importação tem de ser 
 1. Cria um repositório no GitHub, por exemplo `RJP_TM_Tactics`.
 2. Descompacta **os ficheiros da raiz** deste ZIP na raiz do repositório e faz o commit. A pasta `.github/workflows/` deve ficar exatamente na raiz (e não dentro de outra pasta).
 3. Vai a **Actions → Compilar APK Android - RJP TM Tactics → Run workflow** (ou faz um `push` para `main`).
-4. O fluxo instala Node 22, Java 21 e o Android SDK; testa o motor tático; compila a WebApp; gera o projeto Android Capacitor, instala o plugin nativo RJP e o ícone personalizado, compila o APK debug e publica-o em **Artifacts**. O `versionCode` da APK aumenta automaticamente em cada execução do workflow.
+4. O fluxo instala Node 22, Java 21 e o Android SDK; testa o motor tático; compila a WebApp; gera o projeto Android Capacitor, instala o plugin nativo RJP e o ícone personalizado, compila o APK debug e publica-o em **Artifacts**. O `versionCode` utiliza a versão da app e o número da execução, aumentando nas versões posteriores.
 5. Descarrega `RJP-TM-Tactics-APK-Android`, extrai `app-debug.apk` e instala no Android (autoriza a instalação de ficheiros desse tipo se necessário).
 
 **Nota:** o APK debug está assinado com a chave debug da própria compilação. Para uma atualização sobre a APK já instalada, é necessário que **ambas** sejam assinadas com a **mesma chave** e conservem o mesmo `appId` (`pt.rjp.tmtactics`). O Android não instala uma atualização assinada com outra chave por cima da anterior. Para distribuição estável, configura futuramente uma assinatura de lançamento (*release*) persistente no GitHub Secrets/Actions.

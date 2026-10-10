@@ -21,6 +21,8 @@ const SHAPE = {
  F:{fin:4.5,hea:3.2,tec:2.7,lon:2.8,pos:2,pac:2,str:1.7}
 };
 export const POSITIONS = Object.keys(SHAPE);
+export const POSITION_NAMES = {GK:'Guarda-redes',DC:'Defesa central',DL:'Defesa esquerdo',DR:'Defesa direito',DMC:'Médio defensivo',DML:'Ala defensivo esquerdo',DMR:'Ala defensivo direito',MC:'Médio-centro',ML:'Médio esquerdo',MR:'Médio direito',OMC:'Médio ofensivo',OML:'Extremo esquerdo',OMR:'Extremo direito',F:'Avançado'};
+
 export const FORMATIONS = {
  '4-3-3':['GK','DL','DC','DC','DR','DMC','MC','MC','OML','OMR','F'],
  '4-2-3-1':['GK','DL','DC','DC','DR','DMC','DMC','OML','OMC','OMR','F'],
@@ -137,6 +139,52 @@ export function analyzeFormation(roster,name){
 }
 export function compareFormations(roster){return Object.keys(FORMATIONS).map(f=>analyzeFormation(roster,f)).filter(Boolean).sort((a,b)=>b.average-a.average);}
 export function rankByPosition(roster,position){return roster.map(player=>({player,score:rating(player,position),base:rawScore(player,position),adapt:suitability(player,position)})).sort((a,b)=>b.score-a.score);}
+/** Compara dois jogadores para uma posição, mostrando valores, atributos-chave e diferenças.
+ * O resultado e as alterações propostas são estimativas independentes, não ratings TM. */
+export function comparePlayersForPosition(a,b,position){
+ if(!a||!b||a.id===b.id||!SHAPE[position])return null;
+ const weights=SHAPE[position];
+ const skills=Object.entries(weights).sort((x,y)=>y[1]-x[1]).map(([key,weight])=>({
+  key,label:LABELS[key],weight,
+  a:Number(a[key]||0),b:Number(b[key]||0),delta:Number(a[key]||0)-Number(b[key]||0)
+ }));
+ const aScore=rating(a,position),bScore=rating(b,position);
+ return {position,a,b,aScore,bScore,delta:aScore-bScore,winner:aScore===bScore?null:aScore>bScore?a:b,skills,
+  aFit:suitability(a,position),bFit:suitability(b,position),
+  aBase:rawScore(a,position),bBase:rawScore(b,position)};
+}
+
+/** Sugere outras posições dentro da tática. A posição favorita registada no TM
+ * nunca é alterada. Só se sugere uma deslocação realista (aptidão >= 70%). */
+export function suggestPositions(player,{minFit=.70,minGain=2,max=3}={}){
+ if(!player)return {natural:[],current:null,suggestions:[]};
+ const natural=parsePositions(player.fp).filter(p=>POSITIONS.includes(p));
+ const pool=natural.length?natural:(POSITIONS.filter(p=>p!=='GK'));
+ const current=pool.map(pos=>({pos,score:rating(player,pos),raw:rawScore(player,pos),fit:suitability(player,pos)}))
+  .sort((a,b)=>b.score-a.score)[0]||null;
+ if(!current)return {natural:[],current:null,suggestions:[]};
+ const suggestions=POSITIONS.filter(pos=>!natural.includes(pos))
+  .map(pos=>({pos,score:rating(player,pos),raw:rawScore(player,pos),fit:suitability(player,pos)}))
+  .filter(x=>x.score>0&&x.fit>=minFit)
+  .map(x=>({...x,gain:x.score-current.score,rawGain:x.raw-current.raw,
+    type:x.score>=current.score+minGain?'mudanca':'alternativa'}))
+  .filter(x=>x.type==='mudanca'||(x.score>=current.score-9.5&&x.fit>=.80))
+  .sort((a,b)=>b.gain-a.gain||b.rawGain-a.rawGain).slice(0,max)
+  .map(x=>({...x,reason:x.type==='mudanca'
+   ?`Índice +${x.gain.toFixed(1)} face à melhor posição habitual; adequação estimada ${Math.round(x.fit*100)}%.`
+   :`Alternativa tática com redução estimada de ${Math.abs(x.gain).toFixed(1)} pontos; adequação ${Math.round(x.fit*100)}%.`}));
+ return {natural,current,suggestions};
+}
+
+/** Ranking das recomendações do plantel, evitando alternativas de guarda-redes. */
+export function teamPositionSuggestions(roster,{max=12}={}){
+ return roster.flatMap(player=>{
+  if(player.excluded||rating(player,parsePositions(player.fp)[0]||'GK')<=0)return [];
+  const result=suggestPositions(player,{max:2});
+  return result.suggestions.map(s=>({player,from:result.current.pos,fromScore:result.current.score,...s}));
+ }).sort((a,b)=>(b.type==='mudanca')-(a.type==='mudanca')||b.gain-a.gain).slice(0,max);
+}
+
 function avg(rows,skills){let sum=0,n=0;for(const p of rows)for(const k of skills){sum+=p[k]||0;n++;}return n?sum/n/20*100:0;}
 export function styleAdvice(lineup){
  if(!lineup)return [];

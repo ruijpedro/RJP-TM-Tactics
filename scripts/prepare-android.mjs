@@ -36,8 +36,13 @@ for (const density of ['mdpi','hdpi','xhdpi','xxhdpi','xxxhdpi']) {
 const gradleFile=path.join(android,'app/build.gradle');
 let gradle=fs.readFileSync(gradleFile,'utf8');
 const buildNumber=Number.parseInt(process.env.GITHUB_RUN_NUMBER||'1',10);
-const versionCode=Number.isSafeInteger(buildNumber)&&buildNumber>0?buildNumber:1;
 const versionName=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')).version;
+const parts=/^(\d+)\.(\d+)\.(\d+)$/.exec(versionName);
+if (!parts) throw new Error('Versão da APP deve usar semver simples X.Y.Z.');
+const [,major,minor,patch]=parts.map(Number);
+if (major>19 || minor>99 || patch>99) throw new Error('Versão superior ao intervalo admitido para versionCode Android.');
+const versionCode=major*100000000 + minor*1000000 + patch*10000 + (Number.isSafeInteger(buildNumber)?Math.max(1,buildNumber%10000):1);
+// Evita uma atualização recusada por código decrescente ao mudar de workflow. 
 if (!/\bversionCode\s+\d+/.test(gradle) || !/\bversionName\s+["'][^"']+["']/.test(gradle)) {
   throw new Error('Gradle sem versionCode/versionName: rever template Capacitor.');
 }
