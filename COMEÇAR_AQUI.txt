@@ -1,23 +1,25 @@
-RJP TM TACTICS 1.1.1 — COMPILAR NO GITHUB
-=======================================
+RJP TM TACTICS V1.3.0 — APK + WEBAPP
 
-Este ZIP está organizado para extrair os FICHEIROS DIRETAMENTE na raiz do repositório.
-Não coloques tudo numa subpasta. A pasta .github tem de ficar na raiz.
+1) Descomprime o ZIP.
+2) Copia TODO o conteúdo para a raiz do teu repositório GitHub, incluindo a pasta .github.
+3) Faz Commit changes.
+4) Abre Actions → Compilar APK Android - RJP TM Tactics → Run workflow.
+5) Quando terminar, abre Artifacts → RJP-TM-Tactics-APK-Android.
+6) Descompacta esse artifact para obter app-debug.apk.
 
-1. Cria um repositório GitHub, por exemplo: RJP_TM_Tactics
-2. Extrai o ZIP e carrega os ficheiros e pastas para a RAIZ do repositório.
-   Mantém a pasta OCULTA .github/workflows/ com ambos os ficheiros .yml.
-3. No GitHub: Actions -> Compilar APK Android - RJP TM Tactics -> Run workflow.
-4. Após sinal verde: abre a execução -> Artifacts -> RJP-TM-Tactics-APK-Android.
-5. Extrai o artifact: vais encontrar app-debug.apk. Instala no telemóvel.
-
-PUBLICAR WEBAPP (opcional):
-Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
-Actions -> Publicar RJP TM Tactics no GitHub Pages -> Run workflow.
+NOVO EM V1.3:
+- Táticas personalizadas (inclui 3-2-3-1-1) e comparações mantidas.
+- Novo separador TREINO +: plano individual com avaliação por posição, lista
+  de atributos fracos que interessam, e prioridades de treino.
+- No mesmo separador: PERFIL DE CONTRATAÇÃO por posição, atributos
+  essenciais, valores de referência e comparação com os jogadores do plantel.
+- A escolha de outra posição é só uma recomendação, sem alterar a conta TM.
 
 IMPORTANTE:
-- O APK é criado no GitHub, não está pré-compilado no ZIP.
-- Sem uma chave de assinatura persistente, futuras APK podem exigir desinstalar a anterior.
-  Lê a secção 'Atualizar APK sem desinstalar' no README para evitar esse problema.
-- A importação de jogadores do Trophy Manager via WebView é EXPERIMENTAL;
-  os cálculos são estimativas próprias e não fórmulas oficiais.
+- Os valores 12/15/18 são objetivos configuráveis, NÃO limites oficiais.
+- A análise é heurística, NÃO corresponde ao cálculo interno do Trophy Manager.
+- Não inclui automatização de treino nem licitações.
+- Mantém a mesma chave de assinatura Android se quiseres atualizar sem desinstalar.
+
+Se a compilação falhar, abre o passo vermelho no GitHub Actions e partilha
+as últimas 30 linhas do erro, não o texto integral das licenças do SDK.

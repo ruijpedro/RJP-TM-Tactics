@@ -71,3 +71,33 @@ test('pipeline Android usa SDK sem pedir pacote legado tools',()=>{
  assert.match(wf,/packages: 'platform-tools'/);
  assert.doesNotMatch(wf,/setup-android@v3/);
 });
+
+
+import {validateCustomFormation,combinedFormations,positionsByLine} from '../src/analysis.js';
+test('a tática do utilizador 3-2-3-1-1 tem onze incluindo guarda-redes',()=>{
+ const pos=FORMATIONS['3-2-3-1-1'];assert.equal(pos.length,11);
+ assert.deepEqual(positionsByLine(pos),{D:3,DM:2,M:3,OM:1,F:1});
+ const r=analyzeFormation(demoPlayers,'3-2-3-1-1');assert.ok(r);assert.equal(r.starters.length,11);
+});
+test('táticas livres com posições repetidas entram no melhor onze e no ranking',()=>{
+ const original=structuredClone(demoPlayers);
+ const f=validateCustomFormation({name:'Minha disposição',positions:['GK','DC','DC','DC','DMC','DMC','MC','MC','MC','OMC','F']});
+ assert.equal(f.positions.length,11);
+ const defs=combinedFormations([f]);assert.ok(defs[f.name]);
+ const chosen=analyzeFormation(demoPlayers,f.name,[f]);assert.ok(chosen);
+ assert.equal(new Set(chosen.starters.map(s=>s.player.id)).size,11);
+ assert.ok(compareFormations(demoPlayers,[f]).some(x=>x.name===f.name));
+ assert.deepEqual(demoPlayers,original);
+});
+test('recusa táticas sem GR ou com número incorreto e nomes duplicados não substituem originais',()=>{
+ assert.throws(()=>validateCustomFormation({name:'Falha',positions:Array(11).fill('F')}));
+ assert.throws(()=>validateCustomFormation({name:'Falha',positions:['GK',...Array(9).fill('DC')]}));
+ assert.throws(()=>validateCustomFormation({name:'Falha',positions:['GK',...Array(9).fill('MC'),'GK']}));
+ const same=combinedFormations([{name:'4-3-3',positions:['GK',...Array(10).fill('F')]}]);
+ assert.deepEqual(same['4-3-3'],FORMATIONS['4-3-3']);
+});
+test('importação do novo plantel não deve apagar as táticas guardadas (código interface)',()=>{
+ const source=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ assert.match(source,/db=\{\.\.\.db,players,demo:false/);
+ assert.match(source,/data-action=\"saveTactic\"/);
+});

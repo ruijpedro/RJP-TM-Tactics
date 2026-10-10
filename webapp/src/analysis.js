@@ -20,10 +20,12 @@ const SHAPE = {
  OMR:{pac:3.9,cro:3.0,tec:3.2,fin:2.8,pas:1.8,wor:1.6},
  F:{fin:4.5,hea:3.2,tec:2.7,lon:2.8,pos:2,pac:2,str:1.7}
 };
+export const POSITION_WEIGHTS = SHAPE;
 export const POSITIONS = Object.keys(SHAPE);
 export const POSITION_NAMES = {GK:'Guarda-redes',DC:'Defesa central',DL:'Defesa esquerdo',DR:'Defesa direito',DMC:'Médio defensivo',DML:'Ala defensivo esquerdo',DMR:'Ala defensivo direito',MC:'Médio-centro',ML:'Médio esquerdo',MR:'Médio direito',OMC:'Médio ofensivo',OML:'Extremo esquerdo',OMR:'Extremo direito',F:'Avançado'};
 
 export const FORMATIONS = {
+ '3-2-3-1-1':['GK','DC','DC','DC','DMC','DMC','MC','MC','MC','OMC','F'],
  '4-3-3':['GK','DL','DC','DC','DR','DMC','MC','MC','OML','OMR','F'],
  '4-2-3-1':['GK','DL','DC','DC','DR','DMC','DMC','OML','OMC','OMR','F'],
  '4-4-2':['GK','DL','DC','DC','DR','ML','MC','MC','MR','F','F'],
@@ -35,6 +37,37 @@ export const FORMATIONS = {
  '5-3-2':['GK','DL','DC','DC','DC','DR','DMC','MC','MC','F','F'],
  '4-2-2-2':['GK','DL','DC','DC','DR','DMC','DMC','OML','OMR','F','F']
 };
+/** Formação livre: 1 guarda-redes fixo e 10 posições de campo. Sem restringir esquemas por linhas.
+ * A validação não altera a conta TM nem o plantel. */
+export function validateCustomFormation(input){
+ if(!input || typeof input!=='object')throw new Error('Formação inválida.');
+ const name=String(input.name||'').trim().replace(/\s+/g,' ').slice(0,45);
+ if(!name)throw new Error('Escreve o nome da formação.');
+ const positions=input.positions;
+ if(!Array.isArray(positions)||positions.length!==11||positions[0]!=='GK'||positions.slice(1).some(p=>!POSITIONS.includes(p)||p==='GK')){
+  throw new Error('A formação tem de incluir um guarda-redes e exatamente 10 jogadores de campo.');
+ }
+ return {name,positions:[...positions]};
+}
+export function combinedFormations(custom=[]){
+ const defs={...FORMATIONS};
+ if(!Array.isArray(custom))return defs;
+ for(const item of custom.slice(0,30)){
+  try{const f=validateCustomFormation(item);
+   if(Object.keys(defs).some(n=>n.toLocaleLowerCase('pt-PT')===f.name.toLocaleLowerCase('pt-PT')))continue;
+   defs[f.name]=f.positions;
+  }catch{/* Ignorar registos malformados em backups antigos. */}
+ }
+ return defs;
+}
+export function positionsByLine(positions){
+ const result={D:0,DM:0,M:0,OM:0,F:0};
+ for(const p of positions.slice(1)){
+  const line=p==='F'?'F':p.startsWith('OM')?'OM':p.startsWith('DM')?'DM':p.startsWith('M')?'M':'D';
+  result[line]++;
+ }
+ return result;
+}
 const clamp = (n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 export function parsePositions(fp) {
  const out=new Set();
@@ -124,8 +157,8 @@ export function maximumAssignment(scores){
  const ids=Array(n).fill(-1);for(let j=1;j<=m;j++)if(p[j])ids[p[j]-1]=j-1;
  return ids;
 }
-export function analyzeFormation(roster,name){
- const positions=FORMATIONS[name];if(!positions)return null;
+export function analyzeFormation(roster,name,custom=[]){
+ const positions=combinedFormations(custom)[name];if(!positions)return null;
  const candidates=roster.filter(p=>!p.excluded&&!(p.inj&&String(p.inj)!=='0')&&(!p.ban||p.ban==='0'||p.ban==='g'));
  if(candidates.length<11)return null;
  const mat=positions.map(pos=>candidates.map(p=>rating(p,pos)));
@@ -137,7 +170,7 @@ export function analyzeFormation(roster,name){
  const gaps=starters.filter(s=>s.score<55||suitability(s.player,s.position)<.7);
  return {name,starters,average,total:sum,gaps};
 }
-export function compareFormations(roster){return Object.keys(FORMATIONS).map(f=>analyzeFormation(roster,f)).filter(Boolean).sort((a,b)=>b.average-a.average);}
+export function compareFormations(roster,custom=[]){return Object.keys(combinedFormations(custom)).map(f=>analyzeFormation(roster,f,custom)).filter(Boolean).sort((a,b)=>b.average-a.average);}
 export function rankByPosition(roster,position){return roster.map(player=>({player,score:rating(player,position),base:rawScore(player,position),adapt:suitability(player,position)})).sort((a,b)=>b.score-a.score);}
 /** Compara dois jogadores para uma posição, mostrando valores, atributos-chave e diferenças.
  * O resultado e as alterações propostas são estimativas independentes, não ratings TM. */

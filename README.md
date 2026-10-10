@@ -1,4 +1,4 @@
-# RJP TM Tactics — V1.1.1 (Portugal)
+# RJP TM Tactics — V1.3.0 (Portugal)
 
 Aplicação independente **Trophy Manager** para Android (APK construída pelo GitHub Actions) e WebApp/PWA. Projeto desenvolvido para utilização no telemóvel, sem extensões do Chrome ou Edge.
 
@@ -13,7 +13,7 @@ O `versionCode` da APK é construído a partir da versão semântica e do númer
 ## Já implementado
 
 - **Onze ideal**: avalia as competências por posição e encontra a melhor combinação de 11 jogadores *sem os repetir*, usando atribuição global otimizada (algoritmo húngaro).
-- **Dez formações**: 4-3-3, 4-2-3-1, 4-4-2, 4-1-4-1, 4-3-1-2, 4-4-1-1, 3-5-2, 3-4-3, 5-3-2 e 4-2-2-2.
+- **Onze formações de origem + táticas livres**: 3-2-3-1-1, 4-3-3, 4-2-3-1, 4-4-2, 4-1-4-1, 4-3-1-2, 4-4-1-1, 3-5-2, 3-4-3, 5-3-2 e 4-2-2-2.
 - **Aptidão posicional**: distingue posição favorita e mudanças de corredor/setor; considera rotina, condição (se fornecida), lesões, suspensão e exclusão.
 - **Rankings por posição**, alternativas para o onze, pontos a melhorar, cartas simples com atributos.
 - **Recomendação de estilo de jogo**: alas, passe curto, direto, remate exterior e transições, usando indicadores heurísticos e explicações.
@@ -121,3 +121,27 @@ A estrutura `players_ar` com campos `id`, `name`, `fp`, `asi`, `rec`, `routine` 
 ## Testes
 
 `npm test` executa testes de posições, cálculo global do onze, seleção por formação, indisponibilidades e importador CSV/JSON.
+
+
+## V1.2.0 — Táticas livres e personalizadas
+
+- Novo separador **Táticas**: criar, editar, guardar, apagar e importar/exportar até 30 táticas.
+- Exemplo pronto **3-2-3-1-1**: GR + 3 DC + 2 DMC + 3 MC + 1 OMC + 1 F.
+- Editor por posição para os 10 jogadores de campo, sem restringir formações a uma lista fixa.
+- As táticas guardadas entram na análise global, no melhor onze e na comparação automática; o plantel não é alterado.
+- As táticas são preservadas quando se importa um novo plantel. O backup de táticas é independente do plantel.
+- Os cálculos são heurísticos; a disposição deverá ser confirmada no Trophy Manager.
+
+## V1.3.0 — Treino individual e recrutamento (10 de outubro de 2026)
+
+Nesta versão, a app mantém as táticas livres da V1.2, incluindo o **3-2-3-1-1**, e adiciona o novo separador **Treino +**, com dois modos:
+
+**Treino por jogador:** escolhe um jogador e, por defeito, a sua melhor posição **estimada e compatível** com as suas posições favoritas (podes escolher manualmente outra função). O programa cruza os atributos reais 1–20 com as ponderações por posição e uma meta indicativa à escolha: Base 12, Competitivo 15, Elevado 18. Ordena até cinco carências prioritárias, mostra valores atuais, metas, importância relativa, áreas de treino relacionadas, atributos sem dados e aviso de idade/desenvolvimento. Atributos ausentes/zero são tratados como *não fornecidos*, nunca como uma capacidade zero a corrigir. O treino não é aplicado automaticamente no TM.
+
+**Perfil de contratação:** para cada posição, incluindo central (DC), trinco (DMC), médio-centro (MC), médio ofensivo (OMC) e avançado (F), apresenta atributos indispensáveis, secundários, mínimos orientativos, checklist de compra e os três melhores jogadores que já tens nessa posição. Não pesquisa o mercado, não calcula preços reais nem compra jogadores automaticamente.
+
+Os perfis são **heurísticas RJP independentes**, elaboradas a partir dos atributos e papéis públicos no TM. Metas 12/15/18 são filtros arbitrários de análise para comparação, não escalões ou requisitos oficiais. A evolução real depende de treinador, fase de desenvolvimento, potencial, instalações e aleatoriedade; não se promete crescimento de skills. Fontes públicas consultadas: [Trophy Manager – Player Positions & Most important skills](https://tm2016.wixsite.com/home/single-post/2016/03/13/player-positions-most-important-skills) e [How To Develop Your Young Stars](https://tmireland.wordpress.com/2011/01/14/how-to-develop-your-young-stars/), guias históricos não necessariamente atualizados ao motor de 2026.
+
+**Compatibilidade:** mantém `appId` `pt.rjp.tmtactics` e armazenamento local `rjp_tm_tactics_v1` para preservar jogadores e táticas importadas nas atualizações, desde que a APK seja assinada com a mesma chave. A versão é V1.3.0, com workflow `android-actions/setup-android@v4`.
+
+**Validação:** `npm test` inclui 22 testes (importação, táticas personalizadas, análise, treino, défices, ausência de dados, níveis de referência, mercado e workflow). Esta embalagem ainda não demonstra uma compilação APK local real: o npm não respondeu dentro do limite do ambiente, pelo que é necessário validar no GitHub Actions.
