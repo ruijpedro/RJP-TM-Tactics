@@ -1,4 +1,38 @@
-# RJP TM Tactics — V1.3.0 (Portugal)
+# RJP TM Tactics V1.7 — Previsão do adversário
+
+O novo módulo permite: abrir o **clube adversário** no navegador TM integrado, tocar **Plantel rival** (captura experimental de `players_ar` se a página publicar essa lista), confirmar o clube, ou importar um JSON/array de jogadores com os mesmos campos da importação habitual. A APP mantém este plantel separado do teu.
+
+No separador **Adversário**, os registos de jogos têm agora um campo facultativo de **titulares observados** (um nome por linha), usado para estimar frequência e distinguir a melhor equipa técnica da provável escolha do treinador. Com 11 jogadores adversários cujos atributos estejam disponíveis, compara formações, projeta um onze e sinaliza eventuais fragilidades. Sem dados suficientes indica que não é possível fazer a previsão; não inventa atributos ou jogadores.
+
+**Importante:** a estrutura de dados do TM pode não expor `players_ar` na página de outros clubes. A importação automática é experimental e pode falhar. A alternativa é um JSON exportado ou transcrito a partir de informação acessível. O motor é heurístico e não é uma previsão certa do onze futuro. A recolha exige um toque e não são utilizados dados privados, passwords ou cookies do Edge.
+
+**Compilação:** substitui o repositório pelo conteúdo do ZIP e executa o workflow no GitHub. Mantém o segredo de assinatura persistente para atualizar sobre a versão anterior. A compilação Android final depende do GitHub Actions e ainda não foi testada num dispositivo real.
+
+## Novidade V1.7 — Calendário e Preview do TM
+
+- Na **APK**, abrir o TM integrado (botão no separador **Adversário**), navegar para **Calendário → próximo jogo → Preview** e tocar em **«Ler antevisão»** na barra interna. A captura é local e feita **apenas após um toque**; o utilizador confirma adversário, data e local antes de guardar.
+- A APP tenta identificar os dois clubes a partir do texto do confronto, cruzando com o nome do teu clube. Caso o TM mude os textos ou o calendário contenha vários jogos, o nome fica em branco e o utilizador preenche manualmente.
+- Na WebApp podes **colar o texto do Preview**; o navegador não tem acesso à sessão aberta no Edge.
+- **Importante:** o preview por si só não permite deduzir automaticamente táticas e resultados anteriores. O motor V1.5 continua a requerer dados observados dos jogos passados para a sua análise tática.
+- A importação não guarda cookies nem palavras-passe e não faz alterações na conta TM; o texto não é enviado para servidores externos pela RJP.
+- Captura/teste do layout real do Preview no TM Android **por validar no dispositivo**.
+
+## Novidades V1.7.0 — Observador de Adversários
+
+- **Novo separador Adversário**: introdução dos resultados, formações, estilos, mentalidades, direção do ataque e observações dos jogos anteriores; guarda tudo localmente.
+- **Relatório do próximo jogo** com tendências fundamentadas nos jogos registados, nível de confiança, sugestões de formação, Plano A / Plano B e acesso ao onze proposto.
+- **Compara com o teu 3-2-3-1-1**: a aplicação só recomenda troca se houver vantagem indicativa de pelo menos 3 pontos com pelo menos três jogos registados. Mantém o limite configurado de estrangeiros.
+- **Importação/exportação de observações JSON**, até 15 jogos. Não recolhe automaticamente dados privados de adversários nem executa alterações no Trophy Manager.
+- **Salto direto da V1.3.0 para a V1.7.0**: a V1.4 não é necessária. O mesmo identificador e a mesma chave de assinatura permitem atualizar sem desinstalar; se a V1.3 instalada usou outra chave debug, poderá ser necessária uma última reinstalação depois de exportar dados.
+- **Validação**: 36 testes Node passaram. Compilação real da APK por confirmar no GitHub Actions (não foi possível instalar dependências npm neste ambiente).
+
+
+- **Limite de cinco estrangeiros**, configurável; otimização do onze e proposta de até cinco suplentes para uma convocatória de 16. A classificação é lida de `players_ar.country` e `SESSION.country` quando disponíveis; sem país, o resultado é sinalizado como provisório.
+- Identificação do país e do estatuto de estrangeiro no editor e no plantel. Continua a ser apenas análise, sem alterar a conta TM.
+- **Assinatura obrigatoriamente persistente** no GitHub Actions: evita compilar por engano APKs que não atualizarão as instalações futuras. Lê [ASSINATURA_E_ATUALIZACOES.md](ASSINATURA_E_ATUALIZACOES.md) para configuração única pelo GitHub Codespaces.
+- **Importante**: a primeira troca de chave desde uma versão antiga sem assinatura persistente pode exigir **uma última desinstalação**. Exporta o plantel e as táticas antes. Instalar APK por cima ≠ atualização silenciosa.
+
+# RJP TM Tactics — V1.7.0 (Portugal)
 
 Aplicação independente **Trophy Manager** para Android (APK construída pelo GitHub Actions) e WebApp/PWA. Projeto desenvolvido para utilização no telemóvel, sem extensões do Chrome ou Edge.
 
@@ -25,13 +59,13 @@ O `versionCode` da APK é construído a partir da versão semântica e do númer
 
 - Não altera automaticamente o onze no site do TM; as sugestões são para aplicares manualmente.
 - Não obtém sessão/login do Edge (o WebView usa cookies próprios); o primeiro login é feito pelo utilizador no domínio oficial.
-- Não faz scraping de adversários, mercado ou scout nem pedidos automáticos aos servidores do TM.
+- Não faz scraping de adversários, mercado ou scout nem pedidos automáticos aos servidores do TM; o módulo Adversário usa dados que introduzes ou importas.
 - Não replica cálculos internos nem os R5/R6/REC oficiais; os pesos foram concebidos como um **índice RJP heurístico (0–100)**, e os resultados não devem ser tomados como previsão garantida.
 - A compilação APK não foi testada num dispositivo Android real neste ambiente; o workflow está preparado para gerar um **APK debug** em GitHub Actions.
 
 ## Instalar WebApp (mais rápido)
 
-A pasta `webapp/` continua disponível como versão estática de consulta, mas o GitHub Pages publica a compilação atual de `src/` para evitar divergências com a APK. Publica o repositório no GitHub e escolhe **Settings → Pages → Build and deployment → Source: GitHub Actions**. O workflow `Publicar RJP TM Tactics no GitHub Pages` recompila a WebApp em cada alteração relevante. Depois abre o endereço HTTPS do Pages no Android (Edge ou Chrome) e escolhe «Adicionar ao ecrã inicial».
+A WebApp é produzida pelo `npm run build` a partir de `src/` e publicada automaticamente no GitHub Pages. Publica o repositório no GitHub e escolhe **Settings → Pages → Build and deployment → Source: GitHub Actions**. O workflow `Publicar RJP TM Tactics no GitHub Pages` recompila a WebApp em cada alteração relevante. Depois abre o endereço HTTPS do Pages no Android (Edge ou Chrome) e escolhe «Adicionar ao ecrã inicial».
 
 Na WebApp, por razões de segurança dos navegadores, a importação tem de ser por ficheiro JSON/CSV ou inserção manual. A WebApp não consegue ler os cookies, o conteúdo da sessão nem as páginas protegidas abertas no Edge.
 
@@ -49,7 +83,7 @@ Na WebApp, por razões de segurança dos navegadores, a importação tem de ser 
 
 O Android **só permite atualizar a aplicação sem a desinstalar** quando o `appId` e a chave de assinatura se mantêm. Este projeto conserva o `appId` `pt.rjp.tmtactics` e incrementa o `versionCode` no workflow, mas uma assinatura debug nova é normalmente gerada em cada máquina/runner do GitHub.
 
-**Recomendado: configurar a chave antes da primeira instalação.** Cria uma única chave debug persistente num computador com Java:
+**Obrigatório: configurar a chave antes da próxima compilação.** Cria uma única chave debug persistente num computador com Java:
 
 ```bash
 mkdir -p ~/.android
@@ -59,9 +93,9 @@ base64 -w0 ~/.android/debug.keystore
 
 O comando `base64 -w0` é para Linux. Em Windows podes usar PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\CAMINHO\debug.keystore"))`. Guarda a saída com cuidado.
 
-No repositório GitHub, vai a **Settings → Secrets and variables → Actions → New repository secret**. Nome: `RJP_ANDROID_DEBUG_KEYSTORE_BASE64`. Valor: todo o conteúdo base64 da chave. O workflow repõe a mesma chave antes de compilar. **Nunca publiques a chave no repositório**. Conserva uma cópia privada: perder a chave impede atualizar a aplicação já instalada com outra assinatura.
+No repositório GitHub, vai a **Settings → Secrets and variables → Actions → New repository secret**. Nome: `RJP_ANDROID_DEBUG_KEYSTORE_BASE64`. Valor: todo o conteúdo base64 da chave. O workflow repõe a mesma chave antes de compilar e **não permite compilar sem ela**. **Nunca publiques a chave no repositório**. Conserva uma cópia privada: perder a chave impede atualizar a aplicação já instalada com outra assinatura.
 
-Caso não configures este segredo, a compilação do APK continua a funcionar, mas o GitHub mostra um aviso de que a próxima APK poderá não instalar sobre a anterior. Para publicação na Play Store, será necessário usar um processo de assinatura *release* separado.
+Caso não configures este segredo, a compilação é intencionalmente interrompida para impedir APKs assinadas com chaves diferentes. Para publicação na Play Store, será necessário usar um processo de assinatura *release* separado.
 
 ## Desenvolvimento local
 
@@ -142,6 +176,6 @@ Nesta versão, a app mantém as táticas livres da V1.2, incluindo o **3-2-3-1-1
 
 Os perfis são **heurísticas RJP independentes**, elaboradas a partir dos atributos e papéis públicos no TM. Metas 12/15/18 são filtros arbitrários de análise para comparação, não escalões ou requisitos oficiais. A evolução real depende de treinador, fase de desenvolvimento, potencial, instalações e aleatoriedade; não se promete crescimento de skills. Fontes públicas consultadas: [Trophy Manager – Player Positions & Most important skills](https://tm2016.wixsite.com/home/single-post/2016/03/13/player-positions-most-important-skills) e [How To Develop Your Young Stars](https://tmireland.wordpress.com/2011/01/14/how-to-develop-your-young-stars/), guias históricos não necessariamente atualizados ao motor de 2026.
 
-**Compatibilidade:** mantém `appId` `pt.rjp.tmtactics` e armazenamento local `rjp_tm_tactics_v1` para preservar jogadores e táticas importadas nas atualizações, desde que a APK seja assinada com a mesma chave. A versão é V1.3.0, com workflow `android-actions/setup-android@v4`.
+**Compatibilidade:** mantém `appId` `pt.rjp.tmtactics` e armazenamento local `rjp_tm_tactics_v1` para preservar jogadores e táticas importadas nas atualizações, desde que a APK seja assinada com a mesma chave. A versão atual é V1.7.0, com workflow `android-actions/setup-android@v4`.
 
-**Validação:** `npm test` inclui 22 testes (importação, táticas personalizadas, análise, treino, défices, ausência de dados, níveis de referência, mercado e workflow). Esta embalagem ainda não demonstra uma compilação APK local real: o npm não respondeu dentro do limite do ambiente, pelo que é necessário validar no GitHub Actions.
+**Validação:** `npm test` inclui 36 testes (importação, táticas personalizadas, análise, treino, défices, ausência de dados, níveis de referência, mercado e workflow). Esta embalagem ainda não demonstra uma compilação APK local real: o npm não respondeu dentro do limite do ambiente, pelo que é necessário validar no GitHub Actions.

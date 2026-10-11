@@ -9,7 +9,7 @@ const strengths={
 function primary(fp){const [r,s='C']=fp.split(',')[0].trim().split(' ');if(r==='GK'||r==='F')return r;return r+s;}
 export const demoPlayers=names.map(([name,fp,age,power],i)=>{
  const pos=primary(fp),keys=pos==='GK'?GK_SKILLS:OUT_SKILLS;
- const p={id:'demo-'+(i+1),name,fp,age,rec:3.5+(i%4)*.5,asi:9000+i*700,routine:7+(i*5%28),condition:92-(i%6)*4,inj:'',ban:'',excluded:false};
+ const p={id:'demo-'+(i+1),name,fp,age,rec:3.5+(i%4)*.5,asi:9000+i*700,routine:7+(i*5%28),condition:92-(i%6)*4,inj:'',ban:'',excluded:false,foreign:false,country:'pt'};
  for(const [j,k] of keys.entries()){
   const isKey=(strengths[pos]||[]).includes(k);
   p[k]=Math.min(20,Math.max(3,Math.round((power/100*12)+(isKey?4:0)+((i*7+j*11)%5)-2)));

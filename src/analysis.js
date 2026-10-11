@@ -88,7 +88,10 @@ export function normalizePlayer(raw,idx=0){
  if(!raw||typeof raw!=='object')return null;
  const name=String(raw.name||raw.nome||raw.player_name||'Jogador '+(idx+1)).replace(/<[^>]*>/g,'').trim().slice(0,95);
  const fp=String(raw.fp||raw.position||raw.posicao||raw.pos||'').trim().slice(0,60);
- const p={id:String(raw.id||raw.player_id||'rjp-'+idx),name,fp,age:Number(raw.age||raw.idade)||0,asi:Number(String(raw.asi??raw.si??'').replace(/[.,\s]/g,''))||0,rec:Number(raw.rec)||0,routine:Number(raw.routine??raw.rou??raw.rotina)||0,condition:raw.condition===undefined&&raw.cond===undefined?null:clamp(Number(raw.condition??raw.cond)||0,0,100),inj:raw.inj||raw.injury||'',ban:raw.ban||'',excluded:!!raw.excluded};
+ const status=raw.foreign??raw.foreigner??raw.estrangeiro;
+ const foreign=status===true||status===1||status==='1'||status==='true'||status==='yes'||status==='sim'?true:status===false||status===0||status==='0'||status==='false'||status==='no'||status==='nao'?false:null;
+ const country=String(raw.country??raw.nationality??raw.pais??'').trim().toLowerCase().slice(0,12);
+ const p={id:String(raw.id||raw.player_id||'rjp-'+idx),name,fp,country,foreign,age:Number(raw.age||raw.idade)||0,asi:Number(String(raw.asi??raw.si??'').replace(/[.,\s]/g,''))||0,rec:Number(raw.rec)||0,routine:Number(raw.routine??raw.rou??raw.rotina)||0,condition:raw.condition===undefined&&raw.cond===undefined?null:clamp(Number(raw.condition??raw.cond)||0,0,100),inj:raw.inj||raw.injury||'',ban:raw.ban||'',excluded:!!raw.excluded};
  for(const k of [...new Set([...OUT_SKILLS,...GK_SKILLS])]) {
   const value=raw[k]??raw.skills?.[k];p[k]=clamp(Number(value)||0,0,20);
  }
@@ -157,20 +160,113 @@ export function maximumAssignment(scores){
  const ids=Array(n).fill(-1);for(let j=1;j<=m;j++)if(p[j])ids[p[j]-1]=j-1;
  return ids;
 }
-export function analyzeFormation(roster,name,custom=[]){
+/** Nacionalidade pode vir de players_ar.country ou ser assinalada manualmente.
+ * Nunca presume que um país desconhecido equivale ao país do clube. */
+export function foreignStatus(p,clubCountry=''){
+ if(p.foreign===true || p.foreign===false)return p.foreign;
+ const playerCountry=String(p.country||'').trim().toLowerCase();
+ const home=String(clubCountry||'').trim().toLowerCase();
+ if(playerCountry && home)return playerCountry!==home;
+ return null;
+}
+/** Melhor distribuição global, com uma restrição de capacidade para estrangeiros.
+ * Grafo: origem -> posição -> jogador -> nacional/estrangeiro -> destino.
+ * Os jogadores de origem desconhecida são tratados como nacionais apenas
+ * para gerar uma proposta PROVISÓRIA; nunca é apresentada como validada. */
+export function quotaAssignment(scores,foreignFlags,maxForeigners=5){
+ const n=scores.length,m=scores[0]?.length||0;
+ if(!n||m<n)return null;
+ const gateHome=1+n+m,gateForeign=gateHome+1,sink=gateForeign+1;
+ const graph=Array.from({length:sink+1},()=>[]);
+ function edge(a,b,cap,cost){
+  const f={to:b,rev:graph[b].length,cap,cost};
+  const r={to:a,rev:graph[a].length,cap:0,cost:-cost};
+  graph[a].push(f);graph[b].push(r);
+ }
+ for(let i=0;i<n;i++)edge(0,1+i,1,0);
+ for(let i=0;i<n;i++)for(let j=0;j<m;j++)if(scores[i][j]>0){
+  edge(1+i,1+n+j,1,100-scores[i][j]);
+ }
+ for(let j=0;j<m;j++)edge(1+n+j,foreignFlags[j]===true?gateForeign:gateHome,1,0);
+ edge(gateForeign,sink,Math.max(0,Math.min(n,Math.floor(maxForeigners))),0);
+ edge(gateHome,sink,n,0);
+ let flow=0;
+ while(flow<n){
+  const d=Array(graph.length).fill(Infinity),prevV=Array(graph.length).fill(-1),prevE=Array(graph.length).fill(-1);
+  const inQueue=Array(graph.length).fill(false),queue=[0];let head=0;
+  d[0]=0;inQueue[0]=true;
+  while(head<queue.length){
+   const v=queue[head++];inQueue[v]=false;
+   for(let k=0;k<graph[v].length;k++){
+    const e=graph[v][k];
+    if(e.cap<=0||d[e.to]<=d[v]+e.cost+1e-9)continue;
+    d[e.to]=d[v]+e.cost;prevV[e.to]=v;prevE[e.to]=k;
+    if(!inQueue[e.to]){inQueue[e.to]=true;queue.push(e.to);}
+   }
+  }
+  if(!Number.isFinite(d[sink]))return null;
+  for(let v=sink;v!==0;v=prevV[v]){
+   if(prevV[v]<0)return null;
+   const e=graph[prevV[v]][prevE[v]];e.cap--;graph[v][e.rev].cap++;
+  }
+  flow++;
+ }
+ const chosen=Array(n).fill(-1);
+ for(let i=0;i<n;i++)for(const e of graph[1+i]){
+  if(e.to>=1+n&&e.to<1+n+m&&e.cap===0){chosen[i]=e.to-(1+n);break;}
+ }
+ return chosen.some(x=>x<0)?null:chosen;
+}
+/** Banco com 5 opções sem exceder o total de estrangeiros na convocatória.
+ * Os perfis de cobertura são apenas sugestões; o TM não é modificado. */
+export function proposeBench(roster,starters,opts={}){
+ const startersIds=new Set(starters.map(s=>s.player.id));
+ const clubCountry=opts.clubCountry||'';
+ const quota=Number.isFinite(opts.maxForeigners)?opts.maxForeigners:Infinity;
+ let foreignUsed=starters.filter(s=>foreignStatus(s.player,clubCountry)===true).length;
+ const available=roster.filter(p=>!startersIds.has(p.id)&&!p.excluded&&(!p.inj||String(p.inj)==='0')&&(!p.ban||['0','g'].includes(String(p.ban))));
+ const chosen=[];
+ for(const roles of [['GK'],['DC','DL','DR'],['DMC','MC'],['OMC','OML','OMR','ML','MR'],['F']]){
+  const choices=available.filter(p=>!chosen.some(s=>s.player.id===p.id) && (foreignStatus(p,clubCountry)!==true||foreignUsed<quota))
+   .map(p=>({player:p,position:roles.reduce((best,r)=>rating(p,r)>rating(p,best)?r:best,roles[0])}))
+   .map(x=>({...x,score:rating(x.player,x.position)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  if(!choices.length)continue;
+  const pick=choices[0];chosen.push(pick);
+  if(foreignStatus(pick.player,clubCountry)===true)foreignUsed++;
+ }
+ // Preencher vagas que não encontram suplente por setor, sem ultrapassar 5.
+ while(chosen.length<5){
+  const all=available.filter(p=>!chosen.some(s=>s.player.id===p.id)&&(foreignStatus(p,clubCountry)!==true||foreignUsed<quota))
+   .map(p=>{const position=POSITIONS.filter(r=>rating(p,r)>0).sort((a,b)=>rating(p,b)-rating(p,a))[0];return {player:p,position,score:position?rating(p,position):0};})
+   .filter(s=>s.score>0).sort((a,b)=>b.score-a.score);
+  if(!all.length)break;
+  const pick=all[0];chosen.push(pick);
+  if(foreignStatus(pick.player,clubCountry)===true)foreignUsed++;
+ }
+ return chosen;
+}
+export function analyzeFormation(roster,name,custom=[],opts={}){
  const positions=combinedFormations(custom)[name];if(!positions)return null;
  const candidates=roster.filter(p=>!p.excluded&&!(p.inj&&String(p.inj)!=='0')&&(!p.ban||p.ban==='0'||p.ban==='g'));
  if(candidates.length<11)return null;
  const mat=positions.map(pos=>candidates.map(p=>rating(p,pos)));
- const assignment=maximumAssignment(mat);if(!assignment)return null;
+ const quota=Number.isFinite(opts.maxForeigners)?opts.maxForeigners:Infinity;
+ const clubCountry=opts.clubCountry||'';
+ const flags=candidates.map(p=>foreignStatus(p,clubCountry));
+ const assignment=Number.isFinite(quota)?quotaAssignment(mat,flags,quota):maximumAssignment(mat);
+ if(!assignment)return null;
  const starters=assignment.map((i,j)=>({position:positions[j],player:candidates[i],score:mat[j][i]}));
  if(starters.some(s=>s.score<=0))return null;
  const sum=starters.reduce((acc,s)=>acc+s.score,0);
  const average=sum/11;
  const gaps=starters.filter(s=>s.score<55||suitability(s.player,s.position)<.7);
- return {name,starters,average,total:sum,gaps};
+ const bench=proposeBench(candidates,starters,{clubCountry,maxForeigners:quota});
+ const callup=[...starters.map(s=>s.player),...bench.map(s=>s.player)];
+ const foreignCount=callup.filter(p=>foreignStatus(p,clubCountry)===true).length;
+ const unknownCount=callup.filter(p=>foreignStatus(p,clubCountry)===null).length;
+ return {name,starters,bench,average,total:sum,gaps,foreignCount,unknownCount,limit:Number.isFinite(quota)?quota:null};
 }
-export function compareFormations(roster,custom=[]){return Object.keys(combinedFormations(custom)).map(f=>analyzeFormation(roster,f,custom)).filter(Boolean).sort((a,b)=>b.average-a.average);}
+export function compareFormations(roster,custom=[],opts={}){return Object.keys(combinedFormations(custom)).map(f=>analyzeFormation(roster,f,custom,opts)).filter(Boolean).sort((a,b)=>b.average-a.average);}
 export function rankByPosition(roster,position){return roster.map(player=>({player,score:rating(player,position),base:rawScore(player,position),adapt:suitability(player,position)})).sort((a,b)=>b.score-a.score);}
 /** Compara dois jogadores para uma posição, mostrando valores, atributos-chave e diferenças.
  * O resultado e as alterações propostas são estimativas independentes, não ratings TM. */

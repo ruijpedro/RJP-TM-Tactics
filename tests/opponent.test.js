@@ -1,0 +1,13 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {emptyOpponent,normalizeOpponentGame,normalizeOpponent,opponentTrends,opponentMatchupAdjustment,scoutNextMatch} from '../src/opponent.js';
+const wing={date:'2026-10-01',formation:'4-3-3',style:'Pelas alas',mentality:'Ofensiva',direction:'Ambas as alas',gf:2,ga:1,venue:'fora'};
+const mk=(name,avg,pos)=>({name,average:avg,starters:pos.map(position=>({position,player:{fin:12},score:avg}))});
+const narrow=mk('3-2-3-1-1',70,['GK','DC','DC','DC','DMC','DMC','MC','MC','MC','OMC','F']);
+const wide=mk('4-2-3-1',72,['GK','DL','DC','DC','DR','DMC','DMC','OML','OMC','OMR','F']);
+test('estado inicial sem adversário nem dados inventados',()=>{const t=opponentTrends(emptyOpponent());assert.equal(t.n,0);assert.equal(scoutNextMatch(emptyOpponent(),[narrow,wide]).change,false);});
+test('valida estilos e entradas de jogos',()=>{assert.equal(normalizeOpponentGame(wing).style,'Pelas alas');assert.throws(()=>normalizeOpponentGame({...wing,style:'inexistente'}));assert.throws(()=>normalizeOpponent({matches:Array(26).fill(wing)}));});
+test('resumo de tendências usa jogos observados',()=>{const t=opponentTrends({matches:[wing,wing]});assert.equal(t.n,2);assert.equal(t.wingShare,1);assert.equal(t.gf,4);assert.equal(t.confidence,'muito limitada');});
+test('aplica penalidade moderada a defesa sem alas',()=>{const t=opponentTrends({matches:Array(5).fill(wing)});assert.ok(opponentMatchupAdjustment(narrow,t).delta<0);assert.ok(opponentMatchupAdjustment(wide,t).delta>=0);});
+test('com poucas observações não recomenda mudança tática',()=>{const r=scoutNextMatch({matches:[wing]},[narrow,wide]);assert.equal(r.change,false);assert.equal(r.recommendation.formation.name,'3-2-3-1-1');});
+test('com cinco jogos pode sugerir mudança para melhor cobertura',()=>{const r=scoutNextMatch({matches:Array(5).fill(wing)},[narrow,wide]);assert.equal(r.change,true);assert.equal(r.recommendation.formation.name,'4-2-3-1');});
+test('não altera titulares nem os dados de análise originais',()=>{const before=narrow.average;scoutNextMatch({matches:Array(5).fill(wing)},[narrow,wide]);assert.equal(narrow.average,before);});

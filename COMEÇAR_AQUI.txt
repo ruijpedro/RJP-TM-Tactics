@@ -1,25 +1,24 @@
-RJP TM TACTICS V1.3.0 — APK + WEBAPP
+RJP TM TACTICS — V1.7.0 (Android + WebApp / PT-PT)
 
-1) Descomprime o ZIP.
-2) Copia TODO o conteúdo para a raiz do teu repositório GitHub, incluindo a pasta .github.
-3) Faz Commit changes.
-4) Abre Actions → Compilar APK Android - RJP TM Tactics → Run workflow.
-5) Quando terminar, abre Artifacts → RJP-TM-Tactics-APK-Android.
-6) Descompacta esse artifact para obter app-debug.apk.
+SIM: PODES INSTALAR/COMPILAR DIRETAMENTE A V1.5; A V1.4 NÃO É NECESSÁRIA.
 
-NOVO EM V1.3:
-- Táticas personalizadas (inclui 3-2-3-1-1) e comparações mantidas.
-- Novo separador TREINO +: plano individual com avaliação por posição, lista
-  de atributos fracos que interessam, e prioridades de treino.
-- No mesmo separador: PERFIL DE CONTRATAÇÃO por posição, atributos
-  essenciais, valores de referência e comparação com os jogadores do plantel.
-- A escolha de outra posição é só uma recomendação, sem alterar a conta TM.
+NOVO: separador ADVERSÁRIO — regista jogos anteriores, formação, estilo, mentalidade,
+ataque por alas ou centro e resultados. Recebe um relatório com Plano A e Plano B.
+O teu 3-2-3-1-1 é a referência; nenhuma tática ou jogador é alterado no Trophy Manager.
+Dados de adversário são introduzidos manualmente ou por JSON, não importados automaticamente.
 
-IMPORTANTE:
-- Os valores 12/15/18 são objetivos configuráveis, NÃO limites oficiais.
-- A análise é heurística, NÃO corresponde ao cálculo interno do Trophy Manager.
-- Não inclui automatização de treino nem licitações.
-- Mantém a mesma chave de assinatura Android se quiseres atualizar sem desinstalar.
+1) Extrai o ZIP e envia todos os ficheiros para a raiz do repositório GitHub.
+2) Inclui a pasta oculta .github/workflows.
+3) Antes de compilar, configura UMA vez a chave de assinatura em GitHub Secrets,
+   seguindo ASSINATURA_E_ATUALIZACOES.md. O workflow bloqueia sem essa chave.
+4) GitHub → Actions → Compilar APK Android - RJP TM Tactics → Run workflow.
+5) Depois de sucesso → Artifacts → RJP-TM-Tactics-APK-Android → app-debug.apk.
+6) Para WebApp: Settings → Pages → Source GitHub Actions; fluxo 'Publicar RJP TM Tactics'.
 
-Se a compilação falhar, abre o passo vermelho no GitHub Actions e partilha
-as últimas 30 linhas do erro, não o texto integral das licenças do SDK.
+DADOS ANTERIORES: appId pt.rjp.tmtactics, chave de storage rjp_tm_tactics_v1.
+Se a APK V1.3 instalada tiver sido assinada com outra chave, não pode ser instalada
+por cima; exporta o plantel e as táticas, reinstala e volta a importar os backups.
+Depois dessa migração, guarda a chave para todas as futuras atualizações.
+
+TESTES: 36 testes locais passaram. A compilação Android real não foi validada neste
+ambiente por indisponibilidade de npm. Verifica o resultado no GitHub Actions.
