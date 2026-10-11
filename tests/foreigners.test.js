@@ -50,12 +50,16 @@ test('jogadores sem nacionalidade exigem aviso de escolha provisória',()=>{
  assert.ok(a);assert.ok(a.unknownCount>0);
 });
 
-test('fluxo Android exige chave persistente: se estiver ausente a compilação falha',()=>{
+test('workflow Android usa chave persistente quando válida e permite APK de teste sem chave',()=>{
  const workflow=fs.readFileSync(new URL('../.github/workflows/android-apk.yml',import.meta.url),'utf8');
  assert.match(workflow,/secrets\.RJP_ANDROID_DEBUG_KEYSTORE_BASE64/);
- assert.match(workflow,/exit 1/);
+ assert.match(workflow,/if \[ -n "\$DEBUG_KEYSTORE_BASE64" \]/);
+ assert.match(workflow,/base64 --decode/);
  assert.match(workflow,/keytool -list/);
+ assert.match(workflow,/RJP_SIGN_MODE=chave-temporaria/);
+ assert.match(workflow,/rm -f "\$KEY"/);
  assert.match(workflow,/setup-android@v4/);
+ assert.doesNotMatch(workflow,/::error::Assinatura não configurada/);
 });
 
 test('navegador TM importa país do clube e estatuto nacionalidade',()=>{
