@@ -63,25 +63,32 @@ jobs:
           node scripts/prepare-android.mjs
           npx cap sync android
 
-      # Obrigatório: a mesma chave em TODAS as compilações.
-      # Executar UMA vez "bash scripts/configurar-assinatura-github.sh" no Codespaces
-      # para criar o segredo RJP_ANDROID_DEBUG_KEYSTORE_BASE64 no GitHub.
-      - name: Validar assinatura persistente
+      # Se houver uma assinatura persistente válida, reutiliza-a.
+      # Caso contrário, compila uma APK de testes com assinatura temporária.
+      - name: Preparar assinatura Android
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.RJP_ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        shell: bash
         run: |
-          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
-            echo '::error::Assinatura não configurada. Abre um GitHub Codespace e executa bash scripts/configurar-assinatura-github.sh; consulta ASSINATURA_E_ATUALIZACOES.md.'
-            exit 1
-          fi
+          KEY="$HOME/.android/debug.keystore"
           mkdir -p "$HOME/.android"
-          printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
-          chmod 600 "$HOME/.android/debug.keystore"
-          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > /dev/null || {
-            echo '::error::A chave do segredo é inválida ou não corresponde a uma debug.keystore Android.'
-            exit 1
-          }
-          echo 'Assinatura persistente validada.'
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            if printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 --decode > "$KEY" 2>/dev/null && \
+               keytool -list -keystore "$KEY" -storepass android -alias androiddebugkey >/dev/null 2>&1; then
+              chmod 600 "$KEY"
+              echo 'RJP_SIGN_MODE=assinatura-persistente' >> "$GITHUB_ENV"
+              echo '### APK com assinatura persistente' >> "$GITHUB_STEP_SUMMARY"
+              echo 'Usa a chave de assinatura configurada no repositório.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo '::warning::Segredo de assinatura inválido. A compilar APK de testes com uma nova assinatura.'
+          else
+            echo '::warning::Sem assinatura persistente. A compilar APK de testes com uma nova assinatura.'
+          fi
+          rm -f "$KEY"
+          echo 'RJP_SIGN_MODE=chave-temporaria' >> "$GITHUB_ENV"
+          echo '### APK de teste: assinatura temporária' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Pode exigir desinstalar a APK anterior. Faz uma exportação dos dados antes de reinstalar.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Compilar APK debug
         working-directory: android
@@ -92,7 +99,7 @@ jobs:
       - name: Publicar APK para transferência
         uses: actions/upload-artifact@v4
         with:
-          name: RJP-TM-Tactics-APK-Android
+          name: RJP-TM-Tactics-APK-${{ env.RJP_SIGN_MODE }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
