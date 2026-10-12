@@ -1,24 +1,28 @@
-RJP TM TACTICS — V1.7.0 (Android + WebApp / PT-PT)
+RJP TM TACTICS V1.8.0 — Android APK + WebApp — PT-PT
 
-SIM: PODES INSTALAR/COMPILAR DIRETAMENTE A V1.5; A V1.4 NÃO É NECESSÁRIA.
+NOVO: TREINO + > EVOLUÇÃO ★
+Acompanha a classificação geral estimada (com base no REC), as estrelas
+individuais em atributos 19/20 e um histórico datado do treino de cada jogador.
+As datas são apenas intervalos orientativos se existir histórico suficiente.
 
-NOVO: separador ADVERSÁRIO — regista jogos anteriores, formação, estilo, mentalidade,
-ataque por alas ou centro e resultados. Recebe um relatório com Plano A e Plano B.
-O teu 3-2-3-1-1 é a referência; nenhuma tática ou jogador é alterado no Trophy Manager.
-Dados de adversário são introduzidos manualmente ou por JSON, não importados automaticamente.
+COMPILAR NO GITHUB
+1. Extrai o ZIP no teu dispositivo.
+2. Coloca todos os ficheiros na raiz do repositório RJP-TM-Tactics,
+   incluindo a pasta oculta .github e as pastas src, tests e android-custom.
+3. Faz Commit changes.
+4. Actions > Compilar APK Android - RJP TM Tactics > Run workflow.
+5. Terminada a compilação com sucesso, abre Artifacts e descarrega a APK.
+6. Não é necessário instalar versões anteriores (1.4, 1.5, 1.6, 1.7).
 
-1) Extrai o ZIP e envia todos os ficheiros para a raiz do repositório GitHub.
-2) Inclui a pasta oculta .github/workflows.
-3) Antes de compilar, configura UMA vez a chave de assinatura em GitHub Secrets,
-   seguindo ASSINATURA_E_ATUALIZACOES.md. O workflow bloqueia sem essa chave.
-4) GitHub → Actions → Compilar APK Android - RJP TM Tactics → Run workflow.
-5) Depois de sucesso → Artifacts → RJP-TM-Tactics-APK-Android → app-debug.apk.
-6) Para WebApp: Settings → Pages → Source GitHub Actions; fluxo 'Publicar RJP TM Tactics'.
+ATUALIZAÇÃO/REINSTALAÇÃO
+Antes de desinstalar, dentro da APP abre Opções > Backup completo > Exportar tudo.
+Na nova instalação abre Opções > Restaurar backup completo.
+Se a APK nova não usar a mesma chave da anterior, é necessário desinstalar;
+isso elimina normalmente os dados locais. A chave persistente é opcional
+para compilar APKs de teste, mas essencial para atualizar sem desinstalar.
 
-DADOS ANTERIORES: appId pt.rjp.tmtactics, chave de storage rjp_tm_tactics_v1.
-Se a APK V1.3 instalada tiver sido assinada com outra chave, não pode ser instalada
-por cima; exporta o plantel e as táticas, reinstala e volta a importar os backups.
-Depois dessa migração, guarda a chave para todas as futuras atualizações.
-
-TESTES: 36 testes locais passaram. A compilação Android real não foi validada neste
-ambiente por indisponibilidade de npm. Verifica o resultado no GitHub Actions.
+VALIDAÇÃO
+55 testes de código Node passaram localmente.
+A compilação Android da APK e a integração real com o TM devem ser verificadas
+no GitHub e no dispositivo. Os cálculos de evolução são estimativas comunitárias,
+não garantias do motor do Trophy Manager.

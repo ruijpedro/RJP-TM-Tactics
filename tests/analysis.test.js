@@ -98,6 +98,7 @@ test('recusa táticas sem GR ou com número incorreto e nomes duplicados não su
 });
 test('importação do novo plantel não deve apagar as táticas guardadas (código interface)',()=>{
  const source=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
- assert.match(source,/db=\{\.\.\.db,players,demo:false/);
+ assert.match(source,/db=\{\.\.\.db,players,progressHistory:history,demo:false/);
+ assert.match(source,/progressHistory:history/);
  assert.match(source,/data-action=\"saveTactic\"/);
 });

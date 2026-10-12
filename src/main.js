@@ -7,6 +7,7 @@ import { LEVELS,trainingPlan,recruitmentProfile,marketShortlist } from './develo
 import { emptyOpponent,normalizeOpponentGame,normalizeOpponent,scoutNextMatch,OPPONENT_STYLES,OPPONENT_MENTALITIES,ATTACK_DIRECTIONS } from './opponent.js';
 import { parsePreviewCapture } from './preview.js';
 import {predictRival,compareWithRival,rivalGamePlan} from './rival.js';
+import {playerSnapshot,mergeSnapshot,snapshotsFor,progressionReport,sanitizeHistory} from './progression.js';
 const STORAGE='rjp_tm_tactics_v1';
 const TMBridge=registerPlugin('TMBridge');
 let db;
@@ -20,6 +21,8 @@ if(!db.opponent||typeof db.opponent!=='object'||!Array.isArray(db.opponent.match
 if(!db.preview||typeof db.preview!=='object')db.preview=null;
 if(!Array.isArray(db.rivalRoster))db.rivalRoster=[];
 if(typeof db.rivalCountry!=='string')db.rivalCountry='';
+if(!Array.isArray(db.progressHistory))db.progressHistory=[];
+db.progressHistory=sanitizeHistory(db.progressHistory,new Set(db.players.map(p=>p.id)));
 const state={rivalCandidate:null,tab:'analise',formation:'auto',position:'DC',detail:null,edit:null,sort:'score',compareA:null,compareB:null,tacticDraft:null,tacticOrigin:null,devView:'treino',devPlayer:'',devRole:'auto',devPosition:'DC',devLevel:'competitivo'};
 const $=id=>document.getElementById(id);
 const isNative=Capacitor.isNativePlatform();
@@ -33,7 +36,7 @@ function render(){
  const result=compareFormations(db.players,db.formations,quotaOptions);let selection=result[0]||null;
  if(state.formation!=='auto')selection=result.find(r=>r.name===state.formation)||selection;
  $('app').innerHTML=`
- <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.7.0</small></div></div><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
+ <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.8.0</small></div></div><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
  <main class="main">
   <section class="topnote ${db.demo?'demo':'real'}"><span class="dot"></span>${db.demo?'MODO DEMONSTRAÇÃO — 23 jogadores fictícios':safe(db.club||'PLANTEL IMPORTADO')+' · '+db.players.length+' jogadores'}<span class="small">${db.demo?'Importa o teu plantel real para obter recomendações úteis.':db.updated?'Atualizado '+new Date(db.updated).toLocaleString('pt-PT'):''}</span></section>
   ${state.tab==='analise'?renderAnalysis(selection,result):state.tab==='plantel'?renderSquad():state.tab==='comparar'?renderCompare():state.tab==='taticas'?renderTactics():state.tab==='desenvolver'?renderDevelopment():state.tab==='adversario'?renderOpponent(result):state.tab==='importar'?renderImport():renderSettings()}
@@ -155,8 +158,8 @@ function renderImport(){return `<section class="panel"><h1>Importar plantel</h1>
 function renderDevelopment(){
  const view=state.devView;
  const levels=Object.entries(LEVELS).map(([key,value])=>`<option value="${key}" ${state.devLevel===key?'selected':''}>${key==='base'?'Base':key==='competitivo'?'Competitivo':'Elevado'} · alvo ${value}/20</option>`).join('');
- const common=`<section class="panel"><div class="section-head"><div><h1>Desenvolvimento e contratações</h1><p>Recomendações específicas para o teu plantel e para o mercado TM.</p></div></div><div class="dev-tabs"><button class="btn ${view==='treino'?'primary':''}" data-action="devTraining">Treino por jogador</button><button class="btn ${view==='mercado'?'primary':''}" data-action="devMarket">Perfil de contratação</button></div><label class="form-label" for="devLevel">Nível de referência (não oficial)</label><select id="devLevel" class="select">${levels}</select><p class="tiny">Valores de referência à tua escolha, não requisitos ou limites definidos pelo Trophy Manager. Os atributos do TM são de 1 a 20.</p></section>`;
- return common+(view==='treino'?renderTrainingView():renderMarketView());
+ const common=`<section class="panel"><div class="section-head"><div><h1>Desenvolvimento e contratações</h1><p>Recomendações específicas para o teu plantel e para o mercado TM.</p></div></div><div class="dev-tabs"><button class="btn ${view==='treino'?'primary':''}" data-action="devTraining">Treino por jogador</button><button class="btn ${view==='mercado'?'primary':''}" data-action="devMarket">Perfil de contratação</button><button class="btn ${view==='estrelas'?'primary':''}" data-action="devStars">★ Evolução de estrelas</button></div>${view==='estrelas'?'<p class="tiny">Estrelas gerais: referência REC; estrelas individuais: 19 (prata) e 20 (ouro).</p>':`<label class="form-label" for="devLevel">Nível de referência (não oficial)</label><select id="devLevel" class="select">${levels}</select><p class="tiny">Valores de referência à tua escolha, não requisitos ou limites definidos pelo Trophy Manager. Os atributos do TM são de 1 a 20.</p>`}</section>`;
+ return common+(view==='treino'?renderTrainingView():view==='estrelas'?renderProgressionView():renderMarketView());
 }
 function renderTrainingView(){
  if(!db.players.length)return '<section class="panel"><p>Importa primeiro o teu plantel para obter recomendações de treino.</p><button class="btn primary" data-tab="importar">Importar</button></section>';
@@ -176,6 +179,33 @@ function renderTrainingView(){
  ${plan.missingSkills.length?`<p class="warning">Há ${plan.missingSkills.length} atributos sem dados. Valores zero ou ausentes não são tratados como fraqueza: importa a ficha completa para os avaliar.</p>`:''}
  <h3>Todos os atributos relevantes para ${safe(plan.position)}</h3><div class="dev-skill-grid">${plan.skills.map(row).join('')}</div><p class="tiny">${safe(plan.ageNote)} O ranking de prioridades combina a importância de cada atributo com a diferença para a meta escolhida. Não existe alteração automática de treino no TM.</p>
  <div class="row-buttons"><button class="btn" data-action="viewPlayerDevelopment" data-playerid="${safe(player.id)}">Ficha do jogador</button><button class="btn" data-action="devMarket" data-pos="${safe(plan.position)}">Procurar reforço nesta posição →</button></div></section>`;
+}
+/** Estimativas só com observações datadas do próprio jogador; sem regressão sobre valores inventados. */
+function renderProgressionView(){
+ if(!db.players.length)return '<section class="panel"><p>Importa o plantel para começar a guardar a evolução semanal.</p><button class="btn primary" data-tab="importar">Importar plantel</button></section>';
+ const player=db.players.find(p=>p.id===state.devPlayer)||db.players[0];
+ if(!state.devPlayer)state.devPlayer=player.id;
+ const choices=db.players.map(p=>`<option value="${safe(p.id)}" ${player.id===p.id?'selected':''}>${safe(p.name)} — ${safe(p.fp)}</option>`).join('');
+ const report=progressionReport(player,db.progressHistory);
+ const samples=report.observations;
+ const last=samples.at(-1);
+ const fmtRec=v=>v==null?'Não disponível':num(v)+' / 10';
+ const forecast=f=>f?.status==='estimated'?`<b>${safe(f.text)}</b> <small>Confiança ${safe(f.confidence)} · apenas referência, não data garantida.</small>`:`<span class="muted">${safe(f?.text||'Sem próximo patamar.')}</span>`;
+ const overall=report.overall==null?'<p>REC não disponível no plantel importado. Ainda não é possível calcular estrelas gerais.</p>':`<div class="star-overall"><span class="star-giant">★ ${num(report.overall)} / 5</span><small>REC atual ${fmtRec(report.rec)} · conversão comunitária (REC ÷ 2, arredondado de 0,5 em 0,5).</small></div>${report.milestone?`<div class="star-next"><b>Próximo patamar: ${num(report.milestone.stars)} ★</b><small>Limiar estimado de REC: ${num(report.milestone.rec)} / 10</small><p>${forecast(report.overallForecast)}</p>${report.wholeMilestone&&report.wholeMilestone.stars!==report.milestone.stars?`<p class="star-full-note"><b>Próxima estrela inteira: ${num(report.wholeMilestone.stars)} ★</b><br> Limiar REC ${num(report.wholeMilestone.rec)} · ${forecast(report.wholeForecast)}</p>`:''}</div>`:'<p class="tip">Classificação máxima na escala de referência.</p>'}`;
+ const skillRows=report.skills.map(s=>`<div class="star-skill"><div class="star-skill-title"><b>${safe(s.label)}</b><span>${s.value==null?'?':s.value}/20</span></div><div class="star-skill-footer"><span class="skill-medal ${s.level==='ouro'?'gold':s.level==='prata'?'silver':''}">${s.level==='ouro'?'★ Ouro (20)':s.level==='prata'?'☆ Prata (19)':'Sem estrela individual'}</span>${s.target?`<small>Próximo objetivo: ${s.target===19?'19 · prata':'20 · ouro'}</small>`:''}</div>${s.forecast?.status==='estimated'?`<small class="star-forecast">${safe(s.forecast.text)} · confiança ${safe(s.forecast.confidence)}</small>`:s.target?`<small class="muted">${safe(s.forecast?.text||'Sem histórico suficiente.')}</small>`:''}</div>`).join('');
+ const historyRows=samples.slice(-12).reverse().map(s=>`<div class="star-history-row"><span>${safe(s.date)}</span><span>REC ${fmtRec(s.rec)}</span><span>ASI ${s.asi==null?'—':Number(s.asi).toLocaleString('pt-PT')}</span></div>`).join('');
+ const today=new Date().toISOString().slice(0,10);
+ return `<section class="panel"><h2>★ Evolução de estrelas</h2><p>Esta área acompanha a <b>classificação geral</b> e os atributos com <b>estrela prateada (19)</b> ou <b>dourada (20)</b>. Os critérios de classificação são referências comunitárias, não fórmulas oficiais do jogo.</p>
+ <label class="form-label" for="devPlayer">Jogador a acompanhar</label><select id="devPlayer" class="select">${choices}</select>
+ <div class="star-overview"><div><small>Posição mais forte estimada</small><b>${safe(report.role)}</b></div><div><small>Registos guardados</small><b>${samples.length}</b></div></div>
+ <h3>1. Estrelas gerais (REC)</h3>${overall}
+ <h3>2. Estrelas nos atributos</h3><p class="tiny">Os atributos mais relevantes aparecem primeiro, mas são acompanhados todos os atributos da posição. O progresso fracionário é invisível, por isso uma subida de 18 para 19, ou de 19 para 20, não tem data exata previsível.</p>
+ <div class="star-skills">${skillRows}</div>
+ <h3>3. Histórico semanal</h3><p>Reimporta o plantel depois dos treinos: a APP guarda automaticamente uma observação por dia. Também podes registar uma observação manual a partir dos atributos atualmente carregados.</p>
+ <div class="row-buttons"><label class="form-label">Data da observação<input type="date" id="progressDate" value="${today}" max="${today}" /></label><button class="btn primary" data-action="saveProgress">Guardar observação</button></div>
+ ${historyRows?`<div class="star-history">${historyRows}</div>`:'<p class="info">Ainda não há histórico. Guarda a primeira observação e volta a importar os dados após a próxima sessão de treino.</p>'}
+ <div class="row-buttons"><button class="btn" data-action="backupFull">⇧ Backup completo com histórico</button><button class="btn" data-tab="importar">⇩ Reimportar plantel</button></div>
+ <p class="tiny">Previsões apenas indicativas, com janelas largas, quando há crescimento registado em semanas diferentes. Idade, bloom, potencial, escolha de treino, treinadores e instalações podem alterar o ritmo. Não existe ligação automática aos treinos no TM.</p></section>`;
 }
 function renderMarketView(){
  const position=POSITIONS.includes(state.devPosition)?state.devPosition:'DC';
@@ -286,7 +316,7 @@ function bindOpponentFile(){const rivalFile=$('rivalImportFile');if(rivalFile)ri
  persist();render();notify('Adversário importado e relatório atualizado.');
  }catch(error){notify(`Erro a importar adversário: ${error.message}`,true);}finally{event.target.value='';}
 });}
-function renderSettings(){return `<section class="panel"><h1>Opções e transparência</h1><h2>Regra de estrangeiros</h2><p>Máximo de estrangeiros nos 16 convocados (11 titulares + até 5 suplentes). Guia histórico do TM; confirma a regra da tua competição.</p><label class="form-label">País do clube (código TM: pt, br, es, ...)<input id="clubCountry" class="select" value="${safe(db.clubCountry||'')}" placeholder="pt" maxlength="12" /></label><label class="form-label">Máximo de estrangeiros<select id="foreignLimit" class="select">${[0,1,2,3,4,5,6,7,8,9,10,11].map(n=>`<option value="${n}" ${db.maxForeigners===n?'selected':''}>${n}</option>`).join('')}</select></label><p class="tiny">A nacionalidade é comparada com a do clube; também podes assinalar Nacional/Estrangeiro no editor do jogador. Estes dados nunca são enviados ao TM.</p><h2>Plantel e backups</h2><div class="option-row"><div><b>Plantel atual</b><small>${db.players.length} jogadores · ${db.demo?'demonstração':'dados importados'}</small></div><button class="btn" data-action="export">Exportar</button></div><div class="option-row"><div><b>Exemplo de demonstração</b><small>Substitui temporariamente o plantel pelos jogadores fictícios</small></div><button class="btn" data-action="demo">Usar</button></div><div class="option-row"><div><b>Eliminar dados locais</b><small>Apaga a importação e regressa à demonstração</small></div><button class="btn danger" data-action="clear">Limpar</button></div></section>
+function renderSettings(){return `<section class="panel"><h1>Opções e transparência</h1><h2>Regra de estrangeiros</h2><p>Máximo de estrangeiros nos 16 convocados (11 titulares + até 5 suplentes). Guia histórico do TM; confirma a regra da tua competição.</p><label class="form-label">País do clube (código TM: pt, br, es, ...)<input id="clubCountry" class="select" value="${safe(db.clubCountry||'')}" placeholder="pt" maxlength="12" /></label><label class="form-label">Máximo de estrangeiros<select id="foreignLimit" class="select">${[0,1,2,3,4,5,6,7,8,9,10,11].map(n=>`<option value="${n}" ${db.maxForeigners===n?'selected':''}>${n}</option>`).join('')}</select></label><p class="tiny">A nacionalidade é comparada com a do clube; também podes assinalar Nacional/Estrangeiro no editor do jogador. Estes dados nunca são enviados ao TM.</p><h2>Plantel e backups</h2><div class="option-row"><div><b>Backup completo</b><small>Guarda plantel, táticas, adversário e histórico de estrelas antes de reinstalar.</small></div><button class="btn primary" data-action="backupFull">Exportar tudo</button></div><label class="btn upload full">⇩ Restaurar backup completo<input type="file" id="fullBackupFile" accept=".json,application/json" hidden /></label><div class="option-row"><div><b>Plantel atual</b><small>${db.players.length} jogadores · ${db.demo?'demonstração':'dados importados'}</small></div><button class="btn" data-action="export">Exportar</button></div><div class="option-row"><div><b>Exemplo de demonstração</b><small>Substitui temporariamente o plantel pelos jogadores fictícios</small></div><button class="btn" data-action="demo">Usar</button></div><div class="option-row"><div><b>Eliminar dados locais</b><small>Apaga a importação e regressa à demonstração</small></div><button class="btn danger" data-action="clear">Limpar</button></div></section>
  <section class="panel"><h2>Como são escolhidos os jogadores?</h2><p>O motor soma os atributos mais importantes para cada posição (escala normalizada 0–100), e ajusta a adequação posicional, rotina e condição quando disponível. Testa formações de origem e personalizadas com um algoritmo de atribuição global, sem repetir jogadores.</p><p class="warning">Os pesos e os índices são <b>heurísticos e não oficiais</b>. Não equivalem aos valores internos do TM nem às pontuações R5/R6/REC. Sem informações do adversário, nenhuma tática pode ser garantida como superior num jogo concreto.</p><p>O navegador TM integrado é exclusivo da APK, e o acesso à sessão não é partilhado com o Edge. A importação exige ação explícita tua.</p></section>
  <section class="panel"><h2>Créditos / fontes</h2><p>Projeto independente RJP TM Tactics. Inspiração funcional em ferramentas públicas da comunidade e na organização de atributos do Trophy Manager.</p><p><a href="https://greasyfork.org/en/scripts/515818-tm-compare-players-r6" target="_blank" rel="noopener noreferrer">TM Compare Players R6</a> · <a href="https://greasyfork.org/en/scripts/591412-trophy-manager-player-position-analysis-ranking" target="_blank" rel="noopener noreferrer">Position Analysis & Ranking</a></p><p class="tiny">Sem relação oficial com o Trophy Manager ou com o Tactics Pro de Saber Nasr. Não incorporamos o código nem o serviço de licenças deste último.</p></section>`;}
 function findPlayer(id){return db.players.find(p=>p.id===id);}
@@ -302,9 +332,24 @@ function renderDetails(){
 }
 function renderEdit(){const p=state.edit==='new'?{id:'',name:'',fp:'M C',age:22,routine:0,condition:100,inj:'',ban:''}:findPlayer(state.edit);if(!p)return '';
  const keys=[...new Set([...OUT_SKILLS,...GK_SKILLS])];
- return `<div class="modal-overlay" data-action="closeEdit"><form class="modal" id="playerForm"><div class="section-head"><h2>${state.edit==='new'?'Adicionar jogador':'Editar jogador'}</h2><button type="button" class="close" data-action="closeEdit">×</button></div><div class="form-grid"><label>Nome<input name="name" value="${safe(p.name)}" maxlength="80" required /></label><label>Posição (ex.: M C, D LR)<input name="fp" value="${safe(p.fp)}" required /></label><label>Idade<input type="number" name="age" min="16" max="50" value="${p.age}" /></label><label>País do jogador (código, ex.: pt, br)<input name="country" value="${safe(p.country||'')}" maxlength="12" placeholder="pt" /></label><label>Classificação<select name="foreign"><option value="" ${p.foreign==null?'selected':''}>Automática pelo país</option><option value="false" ${p.foreign===false?'selected':''}>Nacional</option><option value="true" ${p.foreign===true?'selected':''}>Estrangeiro</option></select></label><label>Rotina<input type="number" name="routine" min="0" max="200" value="${p.routine}" /></label><label>Condição %<input type="number" name="condition" min="0" max="100" value="${p.condition??100}" /></label><label>Indisponibilidade<select name="inj"><option value="" ${!p.inj?'selected':''}>Disponível</option><option value="1" ${p.inj?'selected':''}>Lesionado / indisponível</option></select></label></div><h3>Atributos (0–20)</h3><div class="skill-input-grid">${keys.map(k=>`<label>${safe(LABELS[k])}<input name="${k}" type="number" min="0" max="20" value="${p[k]??0}" /></label>`).join('')}</div><button type="submit" class="btn primary full">Guardar jogador</button></form></div>`;
+ return `<div class="modal-overlay" data-action="closeEdit"><form class="modal" id="playerForm"><div class="section-head"><h2>${state.edit==='new'?'Adicionar jogador':'Editar jogador'}</h2><button type="button" class="close" data-action="closeEdit">×</button></div><div class="form-grid"><label>Nome<input name="name" value="${safe(p.name)}" maxlength="80" required /></label><label>Posição (ex.: M C, D LR)<input name="fp" value="${safe(p.fp)}" required /></label><label>Idade<input type="number" name="age" min="16" max="50" value="${p.age}" /></label><label>País do jogador (código, ex.: pt, br)<input name="country" value="${safe(p.country||'')}" maxlength="12" placeholder="pt" /></label><label>Classificação<select name="foreign"><option value="" ${p.foreign==null?'selected':''}>Automática pelo país</option><option value="false" ${p.foreign===false?'selected':''}>Nacional</option><option value="true" ${p.foreign===true?'selected':''}>Estrangeiro</option></select></label><label>Rotina<input type="number" name="routine" min="0" max="200" value="${p.routine}" /></label><label>REC (0–10)<input type="number" name="rec" min="0" max="10" step="0.01" value="${p.rec??0}" /></label><label>ASI<input type="number" name="asi" min="0" max="10000000" value="${p.asi??0}" /></label><label>Condição %<input type="number" name="condition" min="0" max="100" value="${p.condition??100}" /></label><label>Indisponibilidade<select name="inj"><option value="" ${!p.inj?'selected':''}>Disponível</option><option value="1" ${p.inj?'selected':''}>Lesionado / indisponível</option></select></label></div><h3>Atributos (0–20)</h3><div class="skill-input-grid">${keys.map(k=>`<label>${safe(LABELS[k])}<input name="${k}" type="number" min="0" max="20" value="${p[k]??0}" /></label>`).join('')}</div><button type="submit" class="btn primary full">Guardar jogador</button></form></div>`;
 }
 function bindInputFile(){
+ const backup=$('fullBackupFile');if(backup)backup.addEventListener('change',async e=>{
+  const file=e.target.files?.[0];if(!file)return;
+  try{
+   if(file.size>3000000)throw new Error('Backup demasiado grande (máximo 3 MB).');
+   const parsed=JSON.parse(await file.text());
+   if(parsed?.schema!=='rjp-tm-full-backup-v1'||!parsed.data||!Array.isArray(parsed.data.players))throw new Error('Não é um backup completo da RJP TM Tactics.');
+   const d=parsed.data;const players=normalizeRoster(d.players);
+   if(!confirm(`Restaurar ${players.length} jogadores e o histórico? Substituirá os dados atuais desta instalação.`))return;
+   db={...d,players,formations:Array.isArray(d.formations)?d.formations.map(x=>{try{return validateCustomFormation(x);}catch{return null;}}).filter(Boolean).slice(0,30):[],
+    progressHistory:sanitizeHistory(d.progressHistory,new Set(players.map(p=>p.id))),demo:!!d.demo,maxForeigners:Number.isInteger(d.maxForeigners)&&d.maxForeigners>=0&&d.maxForeigners<=11?d.maxForeigners:5};
+   if(!db.opponent||!Array.isArray(db.opponent.matches))db.opponent=emptyOpponent();
+   if(!Array.isArray(db.rivalRoster))db.rivalRoster=[];
+   state.tab='analise';state.formation='auto';state.devPlayer='';state.detail=null;state.edit=null;persist();render();notify('Backup completo restaurado.');
+  }catch(error){notify('Erro no backup: '+error.message,true);}finally{e.target.value='';}
+ });
  const tf=$('tacticsImportFile');if(tf)tf.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;
   try{const parsed=JSON.parse(await file.text());if(!Array.isArray(parsed.formations))throw new Error('O ficheiro não contém formations.');
    const incoming=parsed.formations.map(validateCustomFormation);let added=0;
@@ -320,7 +365,7 @@ function bindInputFile(){
  try{const r=importText(await f.text(),f.name);acceptImport(r);}
  catch(err){notify(err.message,true);}finally{e.target.value='';}
 });}
-function acceptImport(players,club='',clubCountry=''){const previous=new Map(db.players.map(p=>[String(p.id),p]));players=players.map(p=>{const old=previous.get(String(p.id));return old?{...p,foreign:p.foreign??old.foreign,country:p.country||old.country||''}:p;});db={...db,players,demo:false,clubCountry:String(clubCountry||db.clubCountry||'').toLowerCase(),updated:new Date().toISOString(),club:club||db.club||''};state.tab='analise';state.formation='auto';state.detail=null;state.compareA=null;state.compareB=null;persist();render();notify('✓ '+players.length+' jogadores importados. Análise atualizada.');}
+function acceptImport(players,club='',clubCountry=''){const previous=new Map(db.players.map(p=>[String(p.id),p]));players=players.map(p=>{const old=previous.get(String(p.id));return old?{...p,foreign:p.foreign??old.foreign,country:p.country||old.country||''}:p;});const date=new Date().toISOString().slice(0,10);let history=db.progressHistory;for(const p of players)history=mergeSnapshot(history,playerSnapshot(p,date));db={...db,players,progressHistory:history,demo:false,clubCountry:String(clubCountry||db.clubCountry||'').toLowerCase(),updated:new Date().toISOString(),club:club||db.club||''};state.tab='analise';state.formation='auto';state.detail=null;state.compareA=null;state.compareB=null;persist();render();notify('✓ '+players.length+' jogadores importados. Histórico de treino guardado.');}
 async function consumeNativeImport(){if(!isNative)return;
  try{const r=await TMBridge.consumeImport();if(r?.json){const payload=JSON.parse(r.json);acceptImport(normalizeRoster(payload.players||payload),payload.club||'',payload.clubCountry||'');}}catch(e){notify('Não foi possível importar: '+e.message,true);}
  try{const result=await TMBridge.consumeRival();if(result?.json){const data=JSON.parse(result.json);const players=normalizeRoster(data.players);state.rivalCandidate={players,url:data.url||''};state.tab='adversario';render();notify('Jogadores encontrados. Confirma o clube antes de guardar.');}}catch(e){notify('Falha na leitura do plantel rival: '+e.message,true);}
@@ -364,10 +409,22 @@ function onClick(e){const el=e.target.closest('[data-action],[data-tab],[data-fo
   }catch(err){notify(err.message,true);return;}
  }
  if(action==='exportTactics'){
-  const payload={app:'RJP TM Tactics',version:'1.7.0',formations:db.formations};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const payload={app:'RJP TM Tactics',version:'1.8.0',formations:db.formations};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='rjp-tm-taticas.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
  }
- if(action==='devTraining'||action==='devMarket'){state.devView=action==='devTraining'?'treino':'mercado';if(el.dataset.pos)state.devPosition=el.dataset.pos;state.tab='desenvolver';state.detail=null;render();return;}
+ if(action==='devTraining'||action==='devMarket'||action==='devStars'){state.devView=action==='devTraining'?'treino':action==='devStars'?'estrelas':'mercado';if(el.dataset.pos)state.devPosition=el.dataset.pos;state.tab='desenvolver';state.detail=null;render();return;}
+ if(action==='saveProgress'){
+  const player=findPlayer(state.devPlayer);if(!player)return;
+  const day=$('progressDate')?.value||new Date().toISOString().slice(0,10);
+  if(day>new Date().toISOString().slice(0,10)){notify('A observação não pode ter uma data futura.',true);return;}
+  try{db.progressHistory=mergeSnapshot(db.progressHistory,playerSnapshot(player,day));persist();render();notify('Observação guardada; a previsão será recalculada após novo treino.');}
+  catch(error){notify(error.message,true);}return;
+ }
+ if(action==='backupFull'){
+  const payload={schema:'rjp-tm-full-backup-v1',version:'1.8.0',savedAt:new Date().toISOString(),data:db};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='RJP_TM_Tactics_Backup_Completo.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);notify('Backup completo exportado. Guarda-o antes de desinstalares a APP.');return;
+ }
  if(action==='viewPlayerDevelopment'){state.detail=el.dataset.playerid;render();return;}
  if(action==='trainFromDetail'){state.devView='treino';state.devPlayer=el.dataset.playerid;state.devRole='auto';state.tab='desenvolver';state.detail=null;render();return;}
  if(action==='viewOpponentLineup'){

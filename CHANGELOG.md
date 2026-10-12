@@ -1,3 +1,12 @@
+## V1.8.0 — Previsão indicativa de estrelas (12/10/2026)
+
+- Novo módulo «Treino + → Evolução ★» com estrelas gerais estimadas (REC) e estrelas individuais em atributos 19/20.
+- Observações datadas de atributos, REC e ASI; histórico por jogador após importações.
+- Estimativas em intervalos de semanas somente com evolução observada e histórico mínimo; quando não há dados suficientes apresenta aviso.
+- Backup completo com evolução, plantel, táticas personalizadas e dados de adversários.
+- Preserva V1.7 e workflow de compilação sem segredo obrigatório.
+- 55 testes Node passaram localmente; compilação Android no GitHub por validar.
+
 ## V1.7.0 — Previsão do adversário
 
 - Plantel adversário separado do plantel do utilizador; importação de JSON e leitura experimental dos dados públicos `players_ar`, quando realmente expostos na página que o utilizador abre no navegador integrado. A captura exige toque e confirmação explícita do clube.

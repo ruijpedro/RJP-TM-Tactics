@@ -28,3 +28,22 @@
 
 /* V1.6 – importação de preview com confirmação pelo treinador */
 .preview-read{margin-top:18px;border:1px solid rgba(186,237,122,.32);border-radius:14px;padding:15px;background:rgba(70,118,66,.14)}.preview-read h3{margin-top:0}.preview-read p{overflow-wrap:anywhere}.preview-raw{white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto;background:#061c15;border-radius:9px;padding:10px;font-size:11px;line-height:1.55}.preview-read summary{font-size:12px;cursor:pointer;color:#b9ed79}
+
+
+/* V1.8 – estrelas e progresso semanal, mobile-first */
+.star-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.star-overview>div,.star-next,.star-overall{background:#16392c;border:1px solid #41674e;border-radius:13px;padding:14px}
+.star-overview b,.star-overview small,.star-overall small,.star-next small{display:block}.star-overview b{color:#c8ee96;font-size:18px;margin-top:5px}.star-overview small,.star-overall small,.star-next small{font-size:11px;color:#bbcfbd}
+.star-giant{font-size:27px;font-weight:850;color:#f1d684;display:block;margin-bottom:5px}
+.star-next{margin-top:12px}.star-next b{color:#d5f1ab}.star-next p{font-size:13px;line-height:1.5}
+.star-skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:9px;margin:14px 0}
+.star-skill{background:#14352a;border:1px solid #345a47;border-radius:11px;padding:12px;min-width:0}
+.star-skill-title,.star-skill-footer{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.star-skill-title b{font-size:13px}.star-skill-title>span{font-size:13px;font-weight:700;color:#d3f39d}
+.star-skill-footer{margin:9px 0 5px;flex-wrap:wrap;font-size:11px}
+.skill-medal{background:#294035;color:#d0ddd4;padding:4px 7px;border-radius:6px;font-size:11px}
+.skill-medal.silver{background:#3f4e52;color:#edf5f9}.skill-medal.gold{background:#725920;color:#fff2af}
+.star-forecast{color:#d4e8c7;display:block;margin:8px 0 0}.star-history{display:grid;gap:3px;margin:12px 0}
+.star-history-row{background:#17362b;border-radius:6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px;font-size:11px}
+.star-history-row span{overflow-wrap:anywhere}
+@media(max-width:430px){.star-skills{grid-template-columns:1fr}.star-history-row{font-size:10px;padding:9px 7px}}
