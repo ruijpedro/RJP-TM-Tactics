@@ -1,3 +1,6 @@
+RJP TM TACTICS V1.9 — NOVO MERCADO
+Separador Mercado: adicionar candidato, preencher atributos/preços/custos, guardar e comparar. Exportar backup em Opções antes de reinstalar.
+
 RJP TM TACTICS V1.8.0 — Android APK + WebApp — PT-PT
 
 NOVO: TREINO + > EVOLUÇÃO ★

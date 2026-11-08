@@ -1,0 +1,16 @@
+RJP TM TACTICS V1.9.0 — MERCADO / INVESTIMENTO
+
+1. Em GitHub, carregar o conteúdo integral deste ZIP para o repositório, mantendo as pastas .github, src, tests, scripts, public e android-custom.
+2. Actions -> Compilar APK Android - RJP TM Tactics -> Run workflow.
+3. Na aplicação, abrir o novo separador Mercado, escolher Analisar jogador à venda, introduzir a ficha real e o preço da lista de transferências.
+4. Introduzir o preço observado de negócios comparáveis (se houver), semanas de retenção, salário e custos. Simular preços de venda pessimista, provável e otimista.
+5. A análise calcula classificação para várias posições, adequação, principais objetivos de treino, margem líquida e ponto de equilíbrio.
+6. O backup completo em Opções inclui candidatos e o plantel; exportar antes de desinstalar.
+
+IMPORTANTE
+- A APP não tem acesso à conta TM nem pesquisa automaticamente jogadores/preços de mercado nesta versão.
+- Nem todas as posições podem ser convertidas na posição FAVORITA do jogador; confirmar sempre no TM.
+- R5/adequação não são fórmulas oficiais do TM; salários, comissão, preços de venda e comparáveis são preenchidos pelo utilizador.
+- Nenhuma compra, venda, licitação ou mudança de treino é executada automaticamente.
+- Sem segredo válido a assinatura Android é de teste, podendo exigir desinstalar a versão anterior.
+- Testes locais: 63 aprovados. Compilação APK e WebApp completa necessita de GitHub Actions.

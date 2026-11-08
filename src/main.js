@@ -8,6 +8,7 @@ import { emptyOpponent,normalizeOpponentGame,normalizeOpponent,scoutNextMatch,OP
 import { parsePreviewCapture } from './preview.js';
 import {predictRival,compareWithRival,rivalGamePlan} from './rival.js';
 import {playerSnapshot,mergeSnapshot,snapshotsFor,progressionReport,sanitizeHistory} from './progression.js';
+import {investmentCandidate,investmentAnalysis,sanitizeInvestmentList} from './investment.js';
 const STORAGE='rjp_tm_tactics_v1';
 const TMBridge=registerPlugin('TMBridge');
 let db;
@@ -23,7 +24,9 @@ if(!Array.isArray(db.rivalRoster))db.rivalRoster=[];
 if(typeof db.rivalCountry!=='string')db.rivalCountry='';
 if(!Array.isArray(db.progressHistory))db.progressHistory=[];
 db.progressHistory=sanitizeHistory(db.progressHistory,new Set(db.players.map(p=>p.id)));
-const state={rivalCandidate:null,tab:'analise',formation:'auto',position:'DC',detail:null,edit:null,sort:'score',compareA:null,compareB:null,tacticDraft:null,tacticOrigin:null,devView:'treino',devPlayer:'',devRole:'auto',devPosition:'DC',devLevel:'competitivo'};
+if(!Array.isArray(db.investments))db.investments=[];
+db.investments=sanitizeInvestmentList(db.investments);
+const state={rivalCandidate:null,tab:'analise',formation:'auto',position:'DC',detail:null,edit:null,sort:'score',compareA:null,compareB:null,tacticDraft:null,tacticOrigin:null,devView:'treino',devPlayer:'',devRole:'auto',devPosition:'DC',devLevel:'competitivo',investmentEdit:null};
 const $=id=>document.getElementById(id);
 const isNative=Capacitor.isNativePlatform();
 const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,12 +39,12 @@ function render(){
  const result=compareFormations(db.players,db.formations,quotaOptions);let selection=result[0]||null;
  if(state.formation!=='auto')selection=result.find(r=>r.name===state.formation)||selection;
  $('app').innerHTML=`
- <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.8.0</small></div></div><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
+ <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.9.0</small></div></div><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
  <main class="main">
   <section class="topnote ${db.demo?'demo':'real'}"><span class="dot"></span>${db.demo?'MODO DEMONSTRAÇÃO — 23 jogadores fictícios':safe(db.club||'PLANTEL IMPORTADO')+' · '+db.players.length+' jogadores'}<span class="small">${db.demo?'Importa o teu plantel real para obter recomendações úteis.':db.updated?'Atualizado '+new Date(db.updated).toLocaleString('pt-PT'):''}</span></section>
-  ${state.tab==='analise'?renderAnalysis(selection,result):state.tab==='plantel'?renderSquad():state.tab==='comparar'?renderCompare():state.tab==='taticas'?renderTactics():state.tab==='desenvolver'?renderDevelopment():state.tab==='adversario'?renderOpponent(result):state.tab==='importar'?renderImport():renderSettings()}
+  ${state.tab==='analise'?renderAnalysis(selection,result):state.tab==='plantel'?renderSquad():state.tab==='comparar'?renderCompare():state.tab==='taticas'?renderTactics():state.tab==='desenvolver'?renderDevelopment():state.tab==='adversario'?renderOpponent(result):state.tab==='investir'?renderInvestments():state.tab==='importar'?renderImport():renderSettings()}
  </main>
- <nav class="bottom-nav" aria-label="Menu"><button class="${state.tab==='analise'?'active':''}" data-tab="analise"><b>▦</b>Análise</button><button class="${state.tab==='plantel'?'active':''}" data-tab="plantel"><b>♟</b>Plantel</button><button class="${state.tab==='comparar'?'active':''}" data-tab="comparar"><b>⇄</b>Comparar</button><button class="${state.tab==='taticas'?'active':''}" data-tab="taticas"><b>▤</b>Táticas</button><button class="${state.tab==='desenvolver'?'active':''}" data-tab="desenvolver"><b>↗</b>Treino +</button><button class="${state.tab==='adversario'?'active':''}" data-tab="adversario"><b>◉</b>Adversário</button><button class="${state.tab==='importar'?'active':''}" data-tab="importar"><b>⇩</b>Importar</button><button class="${state.tab==='definicoes'?'active':''}" data-tab="definicoes"><b>⚙</b>Opções</button></nav>
+ <nav class="bottom-nav" aria-label="Menu"><button class="${state.tab==='analise'?'active':''}" data-tab="analise"><b>▦</b>Análise</button><button class="${state.tab==='plantel'?'active':''}" data-tab="plantel"><b>♟</b>Plantel</button><button class="${state.tab==='comparar'?'active':''}" data-tab="comparar"><b>⇄</b>Comparar</button><button class="${state.tab==='taticas'?'active':''}" data-tab="taticas"><b>▤</b>Táticas</button><button class="${state.tab==='desenvolver'?'active':''}" data-tab="desenvolver"><b>↗</b>Treino +</button><button class="${state.tab==='investir'?'active':''}" data-tab="investir"><b>€</b>Mercado</button><button class="${state.tab==='adversario'?'active':''}" data-tab="adversario"><b>◉</b>Adversário</button><button class="${state.tab==='importar'?'active':''}" data-tab="importar"><b>⇩</b>Importar</button><button class="${state.tab==='definicoes'?'active':''}" data-tab="definicoes"><b>⚙</b>Opções</button></nav>
  <div id="toast" class="toast hidden" role="status"></div>
  ${state.detail?renderDetails():''}
  ${state.edit?renderEdit():''}
@@ -221,6 +224,44 @@ function renderMarketView(){
  ${shortlist.length?`<h3>Áreas a melhorar nos atuais jogadores</h3>${shortlist.slice(0,3).map(x=>`<div class="market-skill"><span><b>${safe(x.player.name)}</b><small>${x.importantBelow.length?safe(x.importantBelow.slice(0,4).join(', ')):'Principais atributos dentro dos valores de referência'}</small></span>${badge(x.score)}</div>`).join('')}`:''}
  <button class="btn" data-action="devTraining" >Analisar treino dos jogadores →</button></section>`;
 }
+/** Mercado: base local e cenários introduzidos pelo utilizador; sem preços automáticos ou licitações. */
+function renderInvestments(){
+ const money=v=>Number(v||0).toLocaleString('pt-PT',{maximumFractionDigits:0});
+ const list=db.investments||[];
+ const reports=list.map(c=>investmentAnalysis(c));
+ const cards=reports.map(({candidate:c,best,favourite,compatible,economy,decision,notes,discount,target,training})=>{
+  const safeId=safe(c.id);
+  const future=economy.mid?`${economy.mid.net>=0?'+':''}${money(economy.mid.net)} · ROI ${economy.mid.roi==null?'—':num(economy.mid.roi)+'%'}`:'Sem estimativa de venda';
+  return `<article class="market-invest-card">
+   <div class="section-head"><div><h3>${safe(c.name)}</h3><p>${safe(c.fp)} · ${c.age||'?'} anos · compra ${money(c.buy)}</p></div><span class="change-pill">${safe(decision)}</span></div>
+   <div class="market-invest-metrics"><div><small>Melhor posição estimada</small><b>${best?safe(best.pos)+' · '+num(best.effective)+'/100':'Sem atributos'}</b></div><div><small>Origem / favorita</small><b>${favourite?safe(favourite.pos)+' · '+num(favourite.effective)+'/100':'Por confirmar'}</b></div><div><small>Ponto de equilíbrio</small><b>${economy.breakEven===null?'Sem valor':money(economy.breakEven)}</b></div><div><small>Venda intermédia</small><b class="${economy.mid?.net>=0?'potential-profit':'potential-loss'}">${future}</b></div></div>
+   ${discount!=null?`<p class="tip">Referência de anúncios comparáveis: ${money(c.comparablePrice)} · diferença ${discount>0?'-':''}${num(Math.abs(discount))}% ${discount>0?'abaixo':discount<0?'acima':'igual'} ao comparável introduzido.</p>`:''}
+   ${training?.priorities?.length?`<p class="tiny"><b>Treino proposto para ${safe(training.position)}:</b> ${training.priorities.slice(0,3).map(p=>safe(p.label)).join(' · ')}.</p>`:''}
+   ${compatible.length?`<p class="tiny">Alternativas posicionais tecnicamente compatíveis: ${compatible.map(v=>`${safe(v.pos)} (${Math.round(v.fit*100)}%)`).join(' · ')}. A posição oficial do TM não é alterada.</p>`:''}
+   ${notes.length?`<p class="tiny">${notes.map(safe).join(' ')}</p>`:''}
+   ${c.notes?`<p class="tiny"><b>Notas:</b> ${safe(c.notes)}</p>`:''}
+   ${c.url.startsWith('https://trophymanager.com/')?`<p><a href="${safe(c.url)}" target="_blank" rel="noopener noreferrer">Ver jogador no TM ↗</a></p>`:''}
+   <div class="row-buttons"><button type="button" class="btn" data-action="investmentEdit" data-id="${safeId}">Editar simulação</button><button type="button" class="btn danger" data-action="investmentDelete" data-id="${safeId}">Remover</button></div>
+  </article>`;
+ }).join('');
+ const current=state.investmentEdit==='new'?{}:list.find(x=>x.id===state.investmentEdit);
+ const fields=[...new Set([...OUT_SKILLS,...GK_SKILLS])];
+ const input=(key,title,extra='')=>`<label>${safe(title)}<input name="${key}" value="${safe(current?.[key]??'')}" ${extra} /></label>`;
+ const attrs=fields.map(k=>`<label>${safe(LABELS[k]||k)}<input type="number" min="0" max="20" step="1" name="${k}" value="${current?.[k]??''}" /></label>`).join('');
+ const form=current!==undefined?`<section class="panel"><h2>${state.investmentEdit==='new'?'Adicionar candidato':'Editar candidato'}</h2><p class="tiny">Atributos reais do TM quando disponíveis. Não é necessário preencher todos, mas análises incompletas são sinalizadas.</p><form id="investmentForm">
+ <div class="form-grid">${input('name','Nome do jogador','required maxlength="95"')}${input('fp','Posição favorita (ex.: M C, D L, F)','required maxlength="60"')}${input('age','Idade','type="number" min="0" max="50"')}${input('routine','Rotina','type="number" min="0" max="200"')}${input('rec','REC','type="number" min="0" max="10" step="0.01"')}${input('asi','ASI','type="number" min="0"')}${input('buy','Preço de compra','type="number" min="0"')}${input('comparablePrice','Preço observado de comparáveis','type="number" min="0"')}${input('wage','Salário semanal','type="number" min="0"')}${input('weeks','Semanas até à venda','type="number" min="1" max="520"')}${input('feePct','Comissões/custos da venda (%)','type="number" min="0" max="100" step="0.1"')}${input('otherCosts','Outros custos','type="number" min="0"')}${input('saleLow','Venda pessimista (estimativa tua)','type="number" min="0"')}${input('saleMid','Venda provável (estimativa tua)','type="number" min="0"')}${input('saleHigh','Venda otimista (estimativa tua)','type="number" min="0"')}${input('url','Ligação ao jogador no TM','type="url" maxlength="500"')}</div>
+ <label class="form-label">Posição-alvo para treino / valorização<select name="targetPosition" class="select"><option value="">A sugerida pela APP</option>${POSITIONS.map(pos=>`<option value="${pos}" ${current?.targetPosition===pos?'selected':''}>${pos} · ${safe(POSITION_NAMES[pos])}</option>`).join('')}</select></label>
+ <label class="form-label">Notas do scout<textarea name="notes" rows="3" maxlength="600">${safe(current?.notes||'')}</textarea></label>
+ <details class="market-attributes" ${state.investmentEdit==='new'?'open':''}><summary>Atributos do jogador (0–20)</summary><div class="skill-input-grid">${attrs}</div></details>
+ <div class="row-buttons"><button type="submit" class="btn primary">Guardar análise</button><button type="button" class="btn" data-action="investmentCancel">Cancelar</button></div></form></section>`:'';
+ return `<section class="panel"><h1>Mercado · Compra e valorização</h1><p>Compara jogadores à venda com o teu plantel, identifica posições alternativas e calcula margens de revenda. <b>Não são preços ou datas previstas pelo TM:</b> introduces cenários com base em anúncios e negócios comparáveis.</p>
+ <div class="row-buttons"><button class="btn primary" data-action="investmentNew">＋ Analisar jogador à venda</button><button class="btn" data-action="openTM">↗ Abrir TM</button><button class="btn" data-action="backupFull">⇧ Backup de oportunidades</button></div>
+ <p class="info">Sem acesso automático ao mercado e sem licitações. Guarda jogadores da lista de transferências para acompanhar preços e decidir comprar, treinar ou vender.</p></section>
+ ${form}
+ <section class="panel"><div class="section-head"><div><h2>Lista de oportunidades</h2><p>${list.length} candidatos guardados apenas no teu dispositivo</p></div></div>
+ ${cards||'<p>Sem jogadores em análise. Adiciona um candidato com os atributos e o preço pedido no TM.</p>'}</section>
+ <section class="panel"><h2>Como avaliar um investimento</h2><p><b>Qualidade atual:</b> índice técnico ponderado e compatibilidade com cada posição. <b>Revalorização:</b> treino, idade, evolução real e procura observada. <b>Rentabilidade:</b> venda líquida menos aquisição, salários, comissão e despesas.</p><p class="warning">A posição favorita só muda se o próprio TM permitir e confirmar essa operação. Não estimamos evolução do potencial oculto, nem garantimos lucros ou preços futuros. A regra de revenda e os custos devem ser confirmados antes de licitar.</p></section>`;
+}
 /** Observador: apenas dados fornecidos pelo treinador, sem recolha automática de perfis privados. */
 function optionsHtml(values,current){return values.map(v=>`<option value="${safe(v)}" ${v===current?'selected':''}>${safe(v)}</option>`).join('');}
 function renderPreviewPanel(){
@@ -344,7 +385,7 @@ function bindInputFile(){
    const d=parsed.data;const players=normalizeRoster(d.players);
    if(!confirm(`Restaurar ${players.length} jogadores e o histórico? Substituirá os dados atuais desta instalação.`))return;
    db={...d,players,formations:Array.isArray(d.formations)?d.formations.map(x=>{try{return validateCustomFormation(x);}catch{return null;}}).filter(Boolean).slice(0,30):[],
-    progressHistory:sanitizeHistory(d.progressHistory,new Set(players.map(p=>p.id))),demo:!!d.demo,maxForeigners:Number.isInteger(d.maxForeigners)&&d.maxForeigners>=0&&d.maxForeigners<=11?d.maxForeigners:5};
+    progressHistory:sanitizeHistory(d.progressHistory,new Set(players.map(p=>p.id))),investments:sanitizeInvestmentList(d.investments),demo:!!d.demo,maxForeigners:Number.isInteger(d.maxForeigners)&&d.maxForeigners>=0&&d.maxForeigners<=11?d.maxForeigners:5};
    if(!db.opponent||!Array.isArray(db.opponent.matches))db.opponent=emptyOpponent();
    if(!Array.isArray(db.rivalRoster))db.rivalRoster=[];
    state.tab='analise';state.formation='auto';state.devPlayer='';state.detail=null;state.edit=null;persist();render();notify('Backup completo restaurado.');
@@ -379,6 +420,14 @@ function onClick(e){const el=e.target.closest('[data-action],[data-tab],[data-fo
  if(el.dataset.tab){state.tab=el.dataset.tab;state.detail=null;state.edit=null;render();window.scrollTo(0,0);return;}
  if(el.dataset.form){state.formation=el.dataset.form;state.tab='analise';render();return;}
  if(el.dataset.player){state.detail=el.dataset.player;render();return;}
+ if(action==='investmentNew'){state.investmentEdit='new';state.tab='investir';render();return;}
+ if(action==='investmentCancel'){state.investmentEdit=null;render();return;}
+ if(action==='investmentEdit'){state.investmentEdit=el.dataset.id;state.tab='investir';render();return;}
+ if(action==='investmentDelete'){
+  const id=el.dataset.id;if(!confirm('Remover este candidato da tua lista local?'))return;
+  db.investments=db.investments.filter(c=>c.id!==id);if(state.investmentEdit===id)state.investmentEdit=null;
+  persist();render();notify('Candidato removido.');return;
+ }
  if(action==='newTactic'||action==='copyExample'||action==='copyBuiltIn'){
   const preset=action==='copyBuiltIn'?FORMATIONS[el.dataset.name]:FORMATIONS['3-2-3-1-1'];
   if(!preset)return;
@@ -409,7 +458,7 @@ function onClick(e){const el=e.target.closest('[data-action],[data-tab],[data-fo
   }catch(err){notify(err.message,true);return;}
  }
  if(action==='exportTactics'){
-  const payload={app:'RJP TM Tactics',version:'1.8.0',formations:db.formations};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const payload={app:'RJP TM Tactics',version:'1.9.0',formations:db.formations};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='rjp-tm-taticas.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
  }
  if(action==='devTraining'||action==='devMarket'||action==='devStars'){state.devView=action==='devTraining'?'treino':action==='devStars'?'estrelas':'mercado';if(el.dataset.pos)state.devPosition=el.dataset.pos;state.tab='desenvolver';state.detail=null;render();return;}
@@ -421,7 +470,7 @@ function onClick(e){const el=e.target.closest('[data-action],[data-tab],[data-fo
   catch(error){notify(error.message,true);}return;
  }
  if(action==='backupFull'){
-  const payload={schema:'rjp-tm-full-backup-v1',version:'1.8.0',savedAt:new Date().toISOString(),data:db};
+  const payload={schema:'rjp-tm-full-backup-v1',version:'1.9.0',savedAt:new Date().toISOString(),data:db};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='RJP_TM_Tactics_Backup_Completo.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);notify('Backup completo exportado. Guarda-o antes de desinstalares a APP.');return;
  }
@@ -490,6 +539,19 @@ function onChange(e){
  if(e.target.id==='devPosition'){state.devPosition=e.target.value;render();return;}
  if(e.target.id==='formationChoice'){state.formation=e.target.value;render();}if(e.target.id==='roleChoice'){state.position=e.target.value;state.compareA=null;state.compareB=null;render();}if(e.target.id==='compareA'||e.target.id==='compareB'){state[e.target.id]=e.target.value;render();}}
 function onSubmit(e){
+ if(e.target.id==='investmentForm'){
+  e.preventDefault();const raw=Object.fromEntries(new FormData(e.target).entries());
+  const previous=db.investments.find(c=>c.id===state.investmentEdit);
+  raw.id=previous?.id||`tm-scout-${Date.now()}`;
+  raw.createdAt=previous?.createdAt||new Date().toISOString().slice(0,10);
+  try{
+   const candidate=investmentCandidate(raw);
+   db.investments=db.investments.filter(c=>c.id!==candidate.id);
+   db.investments.unshift(candidate);
+   db.investments=db.investments.slice(0,100);
+   state.investmentEdit=null;persist();render();notify('Oportunidade guardada. A análise financeira foi atualizada.');
+  }catch(err){notify(err.message,true);}return;
+ }
  if(e.target.id==='previewConfirmForm'){
   e.preventDefault();
   const v=Object.fromEntries(new FormData(e.target).entries());

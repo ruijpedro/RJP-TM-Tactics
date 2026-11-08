@@ -1,3 +1,30 @@
+## V1.9.0 — Mercado e investimento
+
+Novo separador **Mercado** para registar até 100 jogadores observados na lista de transferências, comparar a aptidão por posição, simular reconversões sem presumir alteração da posição favorita no TM e calcular custos de compra, salários, despesas, comissões, ponto de equilíbrio, lucro líquido e ROI em cenários pessimista / provável / otimista. Os cenários de venda são introduzidos pelo utilizador, não são preços recolhidos ou previstos automaticamente. O backup completo inclui as oportunidades.
+
+# RJP TM Tactics V1.8.0 — Evolução de estrelas
+
+**Versão atual:** 1.8.0 · Android + WebApp · português de Portugal.
+
+## O que mudou na V1.8
+
+- **Treino + → Evolução ★:** acompanhamento da classificação geral de meia em meia estrela (indicador de comunidade calculado a partir do REC, não classificação oficial).
+- **Atributos com estrelas:** destaca progressão dos atributos até 19 (prata) e 20 (ouro), incluindo os prioritários para a posição mais adequada do jogador.
+- **Histórico por jogador:** guarda observações datadas do REC, ASI e atributos visíveis (máximo de 52 por jogador), manualmente ou após importar novo plantel.
+- **Previsão condicionada:** só propõe intervalos em semanas depois de duas leituras em datas com pelo menos 7 dias de diferença e evolução positiva; indica que a confiança é limitada/baixa. Não consegue prever progresso interno invisível nem garante prazos.
+- **Backup completo:** exporta e restaura plantel, formações, observações do adversário e histórico de evolução antes de desinstalar a APK.
+- **Workflow simplificado:** aceita chave de assinatura persistente válida; sem ela, permite APK debug temporária (poderá exigir reinstalação e perder dados locais se não fizeres backup).
+
+### Como compilar no GitHub
+
+Carrega o **conteúdo** do ZIP na raiz de `ruijpedro/RJP-TM-Tactics` (incluindo `.github`), faz commit e executa **Actions → Compilar APK Android - RJP TM Tactics → Run workflow**. Após sucesso, obtém a APK em **Artifacts**. Não precisas de compilar versões intermédias.
+
+**Testes realizados neste ambiente:** 55/55 testes Node aprovados e sintaxe dos ficheiros verificada. **Compilação final da APK não confirmada neste ambiente:** as dependências npm não estavam disponíveis no cache local; o GitHub Actions terá de realizar essa validação.
+
+---
+
+## Histórico e funcionalidades anteriores
+
 # RJP TM Tactics V1.7 — Previsão do adversário
 
 O novo módulo permite: abrir o **clube adversário** no navegador TM integrado, tocar **Plantel rival** (captura experimental de `players_ar` se a página publicar essa lista), confirmar o clube, ou importar um JSON/array de jogadores com os mesmos campos da importação habitual. A APP mantém este plantel separado do teu.
@@ -29,7 +56,7 @@ No separador **Adversário**, os registos de jogos têm agora um campo facultati
 
 - **Limite de cinco estrangeiros**, configurável; otimização do onze e proposta de até cinco suplentes para uma convocatória de 16. A classificação é lida de `players_ar.country` e `SESSION.country` quando disponíveis; sem país, o resultado é sinalizado como provisório.
 - Identificação do país e do estatuto de estrangeiro no editor e no plantel. Continua a ser apenas análise, sem alterar a conta TM.
-- **Assinatura obrigatoriamente persistente** no GitHub Actions: evita compilar por engano APKs que não atualizarão as instalações futuras. Lê [ASSINATURA_E_ATUALIZACOES.md](ASSINATURA_E_ATUALIZACOES.md) para configuração única pelo GitHub Codespaces.
+- **Assinatura opcional para testar**: o GitHub Actions compila sem chave persistente, gerando uma APK debug. Para instalar futuras versões por cima da anterior, configura a mesma chave persistente (consulta [ASSINATURA_E_ATUALIZACOES.md](ASSINATURA_E_ATUALIZACOES.md)).
 - **Importante**: a primeira troca de chave desde uma versão antiga sem assinatura persistente pode exigir **uma última desinstalação**. Exporta o plantel e as táticas antes. Instalar APK por cima ≠ atualização silenciosa.
 
 # RJP TM Tactics — V1.7.0 (Portugal)
@@ -75,7 +102,7 @@ Na WebApp, por razões de segurança dos navegadores, a importação tem de ser 
 2. Descompacta **os ficheiros da raiz** deste ZIP na raiz do repositório e faz o commit. A pasta `.github/workflows/` deve ficar exatamente na raiz (e não dentro de outra pasta).
 3. Vai a **Actions → Compilar APK Android - RJP TM Tactics → Run workflow** (ou faz um `push` para `main`).
 4. O fluxo instala Node 22, Java 21 e o Android SDK; testa o motor tático; compila a WebApp; gera o projeto Android Capacitor, instala o plugin nativo RJP e o ícone personalizado, compila o APK debug e publica-o em **Artifacts**. O `versionCode` utiliza a versão da app e o número da execução, aumentando nas versões posteriores.
-5. Descarrega `RJP-TM-Tactics-APK-Android`, extrai `app-debug.apk` e instala no Android (autoriza a instalação de ficheiros desse tipo se necessário).
+5. Descarrega o artefacto `RJP-TM-Tactics-APK-chave-temporaria` (ou `RJP-TM-Tactics-APK-assinatura-persistente`, se tiveres chave válida), extrai `app-debug.apk` e instala no Android (autoriza a instalação de ficheiros desse tipo se necessário).
 
 **Nota:** o APK debug está assinado com a chave debug da própria compilação. Para uma atualização sobre a APK já instalada, é necessário que **ambas** sejam assinadas com a **mesma chave** e conservem o mesmo `appId` (`pt.rjp.tmtactics`). O Android não instala uma atualização assinada com outra chave por cima da anterior. Para distribuição estável, configura futuramente uma assinatura de lançamento (*release*) persistente no GitHub Secrets/Actions.
 
@@ -83,7 +110,7 @@ Na WebApp, por razões de segurança dos navegadores, a importação tem de ser 
 
 O Android **só permite atualizar a aplicação sem a desinstalar** quando o `appId` e a chave de assinatura se mantêm. Este projeto conserva o `appId` `pt.rjp.tmtactics` e incrementa o `versionCode` no workflow, mas uma assinatura debug nova é normalmente gerada em cada máquina/runner do GitHub.
 
-**Obrigatório: configurar a chave antes da próxima compilação.** Cria uma única chave debug persistente num computador com Java:
+**Opcional, para atualizar sem desinstalar:** configura uma chave debug persistente num computador com Java:
 
 ```bash
 mkdir -p ~/.android
@@ -93,9 +120,9 @@ base64 -w0 ~/.android/debug.keystore
 
 O comando `base64 -w0` é para Linux. Em Windows podes usar PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\CAMINHO\debug.keystore"))`. Guarda a saída com cuidado.
 
-No repositório GitHub, vai a **Settings → Secrets and variables → Actions → New repository secret**. Nome: `RJP_ANDROID_DEBUG_KEYSTORE_BASE64`. Valor: todo o conteúdo base64 da chave. O workflow repõe a mesma chave antes de compilar e **não permite compilar sem ela**. **Nunca publiques a chave no repositório**. Conserva uma cópia privada: perder a chave impede atualizar a aplicação já instalada com outra assinatura.
+No repositório GitHub, vai a **Settings → Secrets and variables → Actions → New repository secret**. Nome: `RJP_ANDROID_DEBUG_KEYSTORE_BASE64`. Valor: todo o conteúdo base64 da chave. Quando a chave é válida, o workflow reutiliza-a. Se estiver ausente ou for inválida, compila uma APK de teste com nova assinatura. **Nunca publiques a chave no repositório**. Conserva uma cópia privada: perder a chave impede atualizar a aplicação já instalada com outra assinatura.
 
-Caso não configures este segredo, a compilação é intencionalmente interrompida para impedir APKs assinadas com chaves diferentes. Para publicação na Play Store, será necessário usar um processo de assinatura *release* separado.
+Caso não configures este segredo, a compilação continua com uma assinatura debug temporária. A nova APK poderá exigir desinstalar a anterior, apagando os dados locais. Para publicação na Play Store, utiliza um processo de assinatura *release* separado.
 
 ## Desenvolvimento local
 

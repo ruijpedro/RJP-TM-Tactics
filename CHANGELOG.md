@@ -1,3 +1,9 @@
+## V1.9.0 — 08/11/2026
+- Separador Mercado: candidatos, comparação por posição e cenários financeiros editáveis.
+- Cálculo líquido com custos de aquisição, salários, comissão e outras despesas; break-even e ROI.
+- Lista local de oportunidades incluída no backup completo.
+- Sem automação de compras, sem recolha de preços privados e sem garantias de reconversão oficial.
+
 ## V1.8.0 — Previsão indicativa de estrelas (12/10/2026)
 
 - Novo módulo «Treino + → Evolução ★» com estrelas gerais estimadas (REC) e estrelas individuais em atributos 19/20.
