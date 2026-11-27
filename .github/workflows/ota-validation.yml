@@ -23,6 +23,22 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Preparar assinatura persistente (se configurada)
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.RJP_ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          KEY="$HOME/.android/debug.keystore"
+          mkdir -p "$HOME/.android"
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ] && printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 --decode > "$KEY" 2>/dev/null && keytool -list -keystore "$KEY" -storepass android -alias androiddebugkey >/dev/null 2>&1; then
+            chmod 600 "$KEY"
+            echo "RJP_SIGN_MODE=assinatura-persistente" >> "$GITHUB_ENV"
+            echo "Assinatura persistente configurada." >> "$GITHUB_STEP_SUMMARY"
+          else
+            rm -f "$KEY"
+            echo "RJP_SIGN_MODE=chave-temporaria" >> "$GITHUB_ENV"
+            echo "::warning::APK de validação usa assinatura temporária; não instalar sobre a atual."
+          fi
       - run: |
           if [ ! -d android ]; then npx cap add android; fi
           npx cap sync android
@@ -36,5 +52,5 @@ jobs:
           done
       - uses: actions/upload-artifact@v4
         with:
-          name: android-validation
+          name: android-validation-${{ env.RJP_SIGN_MODE }}
           path: android/app/build/outputs/apk/debug/*.apk
