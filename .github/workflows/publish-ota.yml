@@ -1,4 +1,4 @@
-name: Publicar OTA 1.10.1
+name: Publicar OTA 1.10.2
 on:
   workflow_dispatch:
 permissions:
@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/scouting-plantel-v1
+          ref: 405ff9865ba471f078edf493d59f132996d6ebd2
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -22,11 +22,11 @@ jobs:
       - run: npm test
       - name: Build OTA
         env:
-          VITE_APP_VERSION: '1.10.1'
+          VITE_APP_VERSION: '1.10.2'
         run: |
           npm run build
           test -f dist/index.html
-          (cd dist && zip -qr ../tm-ota-1.10.1.zip .)
+          (cd dist && zip -qr ../tm-ota-1.10.2.zip .)
       - name: Publish verified bundle and manifest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -34,13 +34,13 @@ jobs:
         run: |
           set -euo pipefail
           repo="$GITHUB_REPOSITORY"
-          tag=ota-1.10.1
-          asset=tm-ota-1.10.1.zip
+          tag=ota-1.10.2
+          asset=tm-ota-1.10.2.zip
           checksum=$(sha256sum "$asset" | cut -d' ' -f1)
-          gh release create "$tag" "$asset" --repo "$repo" --target main --title "RJP TM Tactics OTA 1.10.1" --notes "Mercado: importação, datas, limites e análise posicional."
+          gh release create "$tag" "$asset" --repo "$repo" --target main --title "RJP TM Tactics OTA 1.10.2" --notes "Correção do número de versão no cabeçalho; mantém as melhorias do Mercado."
           url="https://github.com/$repo/releases/download/$tag/$asset"
           curl -fLsS --retry 3 "$url" -o /tmp/verified.zip
           echo "$checksum  /tmp/verified.zip" | sha256sum -c -
-          jq -n --arg url "$url" --arg checksum "$checksum" '{appId:"pt.rjp.tmtactics",version:"1.10.1",url:$url,checksum:$checksum}' > /tmp/manifest.json
+          jq -n --arg url "$url" --arg checksum "$checksum" '{appId:"pt.rjp.tmtactics",version:"1.10.2",url:$url,checksum:$checksum}' > /tmp/manifest.json
           sha=$(gh api "repos/$repo/contents/ota/manifest.json?ref=main" --jq .sha)
-          gh api --method PUT "repos/$repo/contents/ota/manifest.json" -f branch=main -f message="Publicar OTA 1.10.1" -f sha="$sha" -f content="$(base64 -w0 /tmp/manifest.json)"
+          gh api --method PUT "repos/$repo/contents/ota/manifest.json" -f branch=main -f message="Publicar OTA 1.10.2" -f sha="$sha" -f content="$(base64 -w0 /tmp/manifest.json)"
