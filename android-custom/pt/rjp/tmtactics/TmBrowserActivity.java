@@ -78,7 +78,7 @@ public class TmBrowserActivity extends Activity {
                 pageLabel.setText("TM · "+url.replace("https://", "").replace("www.",""));
             }
         });
-        root.addView(bar);root.addView(bar2);root.addView(pageLabel);
+        root.addView(bar);root.addView(bar2);Button profile=button("⇩ Importar perfil do jogador");root.addView(profile,new LinearLayout.LayoutParams(-1,dp(42)));profile.setOnClickListener(v->capturePlayer());root.addView(pageLabel);
         root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
         setContentView(root);
         back.setOnClickListener(v->{if(web.canGoBack())web.goBack();else finish();});
@@ -88,7 +88,7 @@ public class TmBrowserActivity extends Activity {
         preview.setOnClickListener(v->capturePreview());
         rival.setOnClickListener(v->captureRival());
         close.setOnClickListener(v->finish());
-        web.loadUrl("home".equals(getIntent().getStringExtra("start_page"))?HOME:START);
+        web.loadUrl("market".equals(getIntent().getStringExtra("start_page"))?"https://trophymanager.com/transfer/":"home".equals(getIntent().getStringExtra("start_page"))?HOME:START);
     }
     /** Apenas após clique, e apenas se a página atual expuser uma lista pública com atributos.
      * Não tentamos descobrir dados privados nem inferir atletas a partir do nome do clube.
@@ -124,6 +124,22 @@ public class TmBrowserActivity extends Activity {
         });
     }
 
+    private void capturePlayer(){
+        String u=web.getUrl();
+        if(u==null||!allowed(Uri.parse(u))){Toast.makeText(this,"Abre o perfil oficial do jogador.",Toast.LENGTH_LONG).show();return;}
+        String js="(function(){try{var m=location.pathname.match(/^\\/players\\/(\\d+)/);if(!m)return JSON.stringify({error:'Abre o perfil individual do jogador.'});var rows=Array.from(document.querySelectorAll('tr')).slice(0,300).map(function(r){return Array.from(r.querySelectorAll('td,th')).map(function(c){var imgs=Array.from(c.querySelectorAll('img')).map(function(i){return [i.alt,i.title,i.getAttribute('src'),i.className].join(' ')});return {text:c.innerText.trim(),icons:imgs,classes:Array.from(c.querySelectorAll('[class]')).map(function(e){return e.className}).filter(function(x){return typeof x==='string'&&/star|silver|gold/i.test(x)}).slice(0,10)};})});return JSON.stringify({kind:'marketPlayer',url:location.href,title:document.title,text:document.body.innerText.slice(0,25000),rows:rows,id:m[1]});}catch(e){return JSON.stringify({error:String(e.message||e)})}})()";
+        web.evaluateJavascript(js,value->{
+            try{
+                Object decoded=new JSONTokener(value).nextValue();
+                if(!(decoded instanceof String))throw new Exception("Resposta inesperada.");
+                JSONObject payload=new JSONObject((String)decoded);
+                if(payload.has("error"))throw new Exception(payload.optString("error"));
+                if(payload.toString().length()>500000)throw new Exception("Perfil demasiado grande.");
+                getSharedPreferences(TMBridgePlugin.STORE,MODE_PRIVATE).edit().putString(TMBridgePlugin.PENDING_PREVIEW,payload.toString()).apply();
+                finish();
+            }catch(Exception ex){new AlertDialog.Builder(this).setTitle("Importar jogador").setMessage(ex.getMessage()).setPositiveButton("OK",null).show();}
+        });
+    }
     private void capturePreview(){
         String u=web.getUrl();
         if(u==null||!allowed(Uri.parse(u))){
