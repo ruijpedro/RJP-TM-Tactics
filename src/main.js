@@ -9,6 +9,7 @@ import { parsePreviewCapture } from './preview.js';
 import {predictRival,compareWithRival,rivalGamePlan} from './rival.js';
 import {playerSnapshot,mergeSnapshot,snapshotsFor,progressionReport,sanitizeHistory} from './progression.js';
 import {investmentCandidate,investmentAnalysis,sanitizeInvestmentList} from './investment.js';
+import {candidateSquadImpact} from './scouting.js';
 const STORAGE='rjp_tm_tactics_v1';
 const TMBridge=registerPlugin('TMBridge');
 let db;
@@ -39,7 +40,7 @@ function render(){
  const result=compareFormations(db.players,db.formations,quotaOptions);let selection=result[0]||null;
  if(state.formation!=='auto')selection=result.find(r=>r.name===state.formation)||selection;
  $('app').innerHTML=`
- <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.9.0</small></div></div><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
+ <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.10.0</small></div></div><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
  <main class="main">
   <section class="topnote ${db.demo?'demo':'real'}"><span class="dot"></span>${db.demo?'MODO DEMONSTRAÇÃO — 23 jogadores fictícios':safe(db.club||'PLANTEL IMPORTADO')+' · '+db.players.length+' jogadores'}<span class="small">${db.demo?'Importa o teu plantel real para obter recomendações úteis.':db.updated?'Atualizado '+new Date(db.updated).toLocaleString('pt-PT'):''}</span></section>
   ${state.tab==='analise'?renderAnalysis(selection,result):state.tab==='plantel'?renderSquad():state.tab==='comparar'?renderCompare():state.tab==='taticas'?renderTactics():state.tab==='desenvolver'?renderDevelopment():state.tab==='adversario'?renderOpponent(result):state.tab==='investir'?renderInvestments():state.tab==='importar'?renderImport():renderSettings()}
@@ -230,11 +231,20 @@ function renderInvestments(){
  const list=db.investments||[];
  const reports=list.map(c=>investmentAnalysis(c));
  const cards=reports.map(({candidate:c,best,favourite,compatible,economy,decision,notes,discount,target,training})=>{
+  const impact=candidateSquadImpact(c,db.demo?[]:db.players);
+  const upgrades=impact.roles.filter(x=>x.improvement!==null&&x.improvement>=3&&x.fit>=70).slice(0,3);
+  const comparisons=impact.roles.filter(x=>x.benchmark&&x.fit>=70).slice(0,4);
   const safeId=safe(c.id);
   const future=economy.mid?`${economy.mid.net>=0?'+':''}${money(economy.mid.net)} · ROI ${economy.mid.roi==null?'—':num(economy.mid.roi)+'%'}`:'Sem estimativa de venda';
   return `<article class="market-invest-card">
    <div class="section-head"><div><h3>${safe(c.name)}</h3><p>${safe(c.fp)} · ${c.age||'?'} anos · compra ${money(c.buy)}</p></div><span class="change-pill">${safe(decision)}</span></div>
    <div class="market-invest-metrics"><div><small>Melhor posição estimada</small><b>${best?safe(best.pos)+' · '+num(best.effective)+'/100':'Sem atributos'}</b></div><div><small>Origem / favorita</small><b>${favourite?safe(favourite.pos)+' · '+num(favourite.effective)+'/100':'Por confirmar'}</b></div><div><small>Ponto de equilíbrio</small><b>${economy.breakEven===null?'Sem valor':money(economy.breakEven)}</b></div><div><small>Venda intermédia</small><b class="${economy.mid?.net>=0?'potential-profit':'potential-loss'}">${future}</b></div></div>
+   <div class="market-squad-comparison"><h4>Impacto na tua equipa · 3-2-3-1-1</h4>
+   ${db.demo?'<p class="tiny">Importa o teu plantel real para obter comparações.</p>':
+    upgrades.length?`<p class="tip"><b>Pode melhorar o onze:</b> ${upgrades.map(x=>safe(x.pos)+' (+ '+num(x.improvement)+' pontos face ao jogador de referência)').join(' · ')}</p>`:
+    '<p class="tiny">Sem melhoria clara de titularidade nesta análise posicional. Pode ser útil para rotação ou desenvolvimento.</p>'}
+   ${comparisons.map(x=>`<p class="tiny"><b>${safe(x.pos)}</b> · candidato ${num(x.candidateScore)} / 100 · referência ${safe(x.benchmark.name)} ${num(x.benchmark.score)} / 100 · diferença ${x.improvement>0?'+':''}${num(x.improvement)} · compatibilidade ${x.fit}%</p>`).join('')}
+   <p class="tiny">Comparação heurística por posição. A mudança de posição favorita não é garantida e o efeito no onze global precisa de validação.</p></div>
    ${discount!=null?`<p class="tip">Referência de anúncios comparáveis: ${money(c.comparablePrice)} · diferença ${discount>0?'-':''}${num(Math.abs(discount))}% ${discount>0?'abaixo':discount<0?'acima':'igual'} ao comparável introduzido.</p>`:''}
    ${training?.priorities?.length?`<p class="tiny"><b>Treino proposto para ${safe(training.position)}:</b> ${training.priorities.slice(0,3).map(p=>safe(p.label)).join(' · ')}.</p>`:''}
    ${compatible.length?`<p class="tiny">Alternativas posicionais tecnicamente compatíveis: ${compatible.map(v=>`${safe(v.pos)} (${Math.round(v.fit*100)}%)`).join(' · ')}. A posição oficial do TM não é alterada.</p>`:''}
