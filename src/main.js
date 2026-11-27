@@ -1,4 +1,4 @@
-import {confirmOtaReady,checkOtaUpdate,installOtaUpdate} from './ota.js';
+import {APP_VERSION,confirmOtaReady,checkOtaUpdate,installOtaUpdate} from './ota.js';
 import './style.css';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { demoPlayers } from './demo.js';
@@ -41,7 +41,7 @@ function render(){
  const result=compareFormations(db.players,db.formations,quotaOptions);let selection=result[0]||null;
  if(state.formation!=='auto')selection=result.find(r=>r.name===state.formation)||selection;
  $('app').innerHTML=`
- <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.10.0</small></div></div><button class="top-action" id="otaCheck" title="Verificar atualização">↻ Atualizar</button><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
+ <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V${safe(APP_VERSION)}</small></div></div><button class="top-action" id="otaCheck" title="Verificar atualização">↻ Atualizar</button><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
  <main class="main">
   <section class="topnote ${db.demo?'demo':'real'}"><span class="dot"></span>${db.demo?'MODO DEMONSTRAÇÃO — 23 jogadores fictícios':safe(db.club||'PLANTEL IMPORTADO')+' · '+db.players.length+' jogadores'}<span class="small">${db.demo?'Importa o teu plantel real para obter recomendações úteis.':db.updated?'Atualizado '+new Date(db.updated).toLocaleString('pt-PT'):''}</span></section>
   ${state.tab==='analise'?renderAnalysis(selection,result):state.tab==='plantel'?renderSquad():state.tab==='comparar'?renderCompare():state.tab==='taticas'?renderTactics():state.tab==='desenvolver'?renderDevelopment():state.tab==='adversario'?renderOpponent(result):state.tab==='investir'?renderInvestments():state.tab==='importar'?renderImport():renderSettings()}
