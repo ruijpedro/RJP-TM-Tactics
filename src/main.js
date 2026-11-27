@@ -231,7 +231,7 @@ function renderInvestments(){
  const money=v=>Number(v||0).toLocaleString('pt-PT',{maximumFractionDigits:0});
  const list=db.investments||[];
  const reports=list.map(c=>investmentAnalysis(c));
- const cards=reports.map(({candidate:c,best,favourite,compatible,economy,bid,scout,decision,notes,discount,target,training})=>{
+ const cards=reports.map(({candidate:c,best,favourite,compatible,economy,bid,scout,decision,notes,discount,target,training,positions,technical})=>{
   const impact=candidateSquadImpact(c,db.demo?[]:db.players);
   const upgrades=impact.roles.filter(x=>x.improvement!==null&&x.improvement>=3&&x.fit>=70).slice(0,3);
   const comparisons=impact.roles.filter(x=>x.benchmark&&x.fit>=70).slice(0,4);
@@ -243,6 +243,12 @@ function renderInvestments(){
    <div class="market-invest-metrics"><div><small>Preço ideal de compra</small><b>${bid.ideal===null?'Sem estimativa':money(bid.ideal)}</b></div><div><small>Licitação máxima · ROI ${num(c.targetRoi)}%</small><b>${bid.maximum===null?'Sem estimativa':money(bid.maximum)}</b></div><div><small>Teto sem prejuízo</small><b>${bid.breakEven===null?'Sem estimativa':money(bid.breakEven)}</b></div></div>
    <div class="market-invest-metrics"><div><small>Fecho do leilão</small><b>${safe(c.auctionDate||'Por confirmar')}</b></div><div><small>Data prevista de revenda</small><b>${safe(c.resaleDate||'Por definir')}</b></div><div><small>Valor bruto previsto de venda</small><b>${c.saleMid?money(c.saleMid):'Sem estimativa'}</b></div></div>
    <p class="tip"><b>${safe(bid.status)}</b> · ${safe(bid.basis||'Introduz um cenário de revenda')} · Confiança: ${safe(bid.confidence||'Insuficiente')} · estimativa condicionada aos custos e referência de mercado.</p>
+   <div class="market-squad-comparison"><h4>Características e reconversão posicional</h4>
+   <p class="tiny">ASI: ${c.asi||'—'} · REC: ${c.rec||'—'} · Rotina: ${c.routine||'—'}</p>
+   <div class="market-list">${positions.slice(0,5).map(p=>`<div class="market-skill"><span><b>${safe(p.pos)} · ${safe(p.label)}</b><small>${p.natural?'Natural':'Alternativa'} · adaptação estimada ${Math.round(p.fit*100)}%</small></span><b>${num(p.effective)}/100</b></div>`).join('')}</div>
+   ${technical&&favourite&&technical.technical>favourite.technical?`<p class="tip"><b>Reconversão a estudar: ${safe(technical.pos)}</b> · índice técnico ${num(technical.technical)} contra ${num(favourite.technical)} na posição natural. ${technical.fit<.7?'Compatibilidade baixa: não recomendar como titular imediato.':'Testar adequação e treino antes de decidir.'}</p>`:'<p class="tiny">Sem vantagem técnica demonstrada para reconversão.</p>'}
+   <details><summary>Atributos importados</summary><div class="market-list">${[...new Set(parsePositions(c.fp).includes('GK')?GK_SKILLS:OUT_SKILLS)].map(k=>`<div class="market-skill"><span>${safe(LABELS[k]||k)}</span><b>${c[k]||'—'}</b></div>`).join('')}</div></details>
+   </div>
    <div class="market-squad-comparison"><h4>Relatório do olheiro</h4><p class="tiny">Potencial: ${c.scoutPotential??'Desconhecido'} · ${safe(scout.confidence)}</p>${scout.risks.map(x=>`<p class="tiny">${safe(x)}</p>`).join('')}${scout.avoidGrowthInvestment?'<p class="warning"><b>Não recomendado para investimento em evolução.</b> O teto financeiro não é autorização de compra; confirma o relatório.</p>':''}</div>
    <div class="market-squad-comparison"><h4>Impacto na tua equipa · 3-2-3-1-1</h4>
    ${db.demo?'<p class="tiny">Importa o teu plantel real para obter comparações.</p>':
