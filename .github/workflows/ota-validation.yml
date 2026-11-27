@@ -1,0 +1,35 @@
+name: Validate OTA and Android
+on:
+  push:
+    branches: [feature/scouting-plantel-v1]
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ota-web-validation
+          path: dist/
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: |
+          if [ ! -d android ]; then npx cap add android; fi
+          npx cap sync android
+          npm run android:prepare
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-validation
+          path: android/app/build/outputs/apk/debug/*.apk
