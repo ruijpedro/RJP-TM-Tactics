@@ -54,15 +54,22 @@ export function resaleScenario(candidate){
   hasPrices:!!(c.saleLow||c.saleMid||c.saleHigh)};
 }
 /** Limite financeiro condicionado aos cenários introduzidos; não é uma cotação TM. */
+/** Referência observada não é uma venda confirmada; desconto prudencial configurado no motor. */
+export function marketReference(candidate){
+ const c=investmentCandidate(candidate);
+ if(c.saleLow||c.saleMid)return {sale:c.saleLow||c.saleMid,basis:c.saleLow?'Venda pessimista':'Venda provável',confidence:'Cenário manual'};
+ if(c.comparablePrice>0)return {sale:Math.floor(c.comparablePrice*0.8),basis:'Comparável observado com desconto prudencial de 20%',confidence:'Baixa'};
+ return {sale:0,basis:null,confidence:'Insuficiente'};
+}
 export function bidLimits(candidate){
  const c=investmentCandidate(candidate), costs=c.wage*c.weeks+c.otherCosts, rate=c.feePct/100;
- const sale=c.saleLow||c.saleMid;
+ const reference=marketReference(c), sale=reference.sale;
  if(!sale||rate>=1)return {maximum:null,ideal:null,breakEven:null,status:'Sem dados suficientes',basis:null};
  const net=sale*(1-rate), roi=c.targetRoi/100;
  const maximum=Math.max(0,Math.floor(net/(1+roi)-costs));
  const ideal=Math.max(0,Math.floor(net/(1+Math.max(roi*2,roi+0.1))-costs));
  const breakEven=Math.max(0,Math.floor(net-costs));
- return {maximum,ideal,breakEven,basis:c.saleLow?'Venda pessimista':'Venda provável',status:maximum===0?'Sem margem para comprar':!c.buy?'Introduz a licitação':c.buy>maximum?'Não aumentar a licitação':c.buy<=ideal?'Excelente oportunidade (condicional)':'Dentro do limite (condicional)'};
+ return {maximum,ideal,breakEven,basis:reference.basis,confidence:reference.confidence,status:maximum===0?'Sem margem para comprar':!c.buy?'Introduz a licitação':c.buy>maximum?'Não aumentar a licitação':c.buy<=ideal?'Excelente oportunidade (condicional)':'Dentro do limite (condicional)'};
 }
 export function investmentAnalysis(candidate){
  const c=investmentCandidate(candidate),positions=investmentPositions(c);
