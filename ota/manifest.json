@@ -1,4 +1,6 @@
 {
   "appId": "pt.rjp.tmtactics",
-  "version": "1.10.0"
+  "version": "1.10.1",
+  "url": "https://github.com/ruijpedro/RJP-TM-Tactics/releases/download/ota-1.10.1/tm-ota-1.10.1.zip",
+  "checksum": "32697b510df6799f574a9c878f492dbdb1ea5ccbdef0ac10fea1ba262d0bf089"
 }
