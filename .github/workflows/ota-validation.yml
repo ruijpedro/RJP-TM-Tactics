@@ -22,13 +22,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
       - run: |
           if [ ! -d android ]; then npx cap add android; fi
           npx cap sync android
           npm run android:prepare
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          for attempt in 1 2 3; do
+            if ./gradlew assembleDebug --no-daemon --max-workers=2; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep $((attempt * 60))
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: android-validation
