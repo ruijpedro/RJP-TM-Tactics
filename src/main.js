@@ -1,3 +1,4 @@
+import {parseMarketProfile} from './market-profile.js';
 import {APP_VERSION,confirmOtaReady,checkOtaUpdate,installOtaUpdate} from './ota.js';
 import './style.css';
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -278,7 +279,7 @@ ${[['scoutDevelopment','Desenvolvimento',[['','Desconhecido'],['early','Inicial'
  <details class="market-attributes" ${state.investmentEdit==='new'?'open':''}><summary>Atributos do jogador (0–20)</summary><div class="skill-input-grid">${attrs}</div></details>
  <div class="row-buttons"><button type="submit" class="btn primary">Guardar análise</button><button type="button" class="btn" data-action="investmentCancel">Cancelar</button></div></form></section>`:'';
  return `<section class="panel"><h1>Mercado · Compra e valorização</h1><p>Compara jogadores à venda com o teu plantel, identifica posições alternativas e calcula margens de revenda. <b>Não são preços ou datas previstas pelo TM:</b> introduces cenários com base em anúncios e negócios comparáveis.</p>
- <div class="row-buttons"><button class="btn primary" data-action="investmentNew">＋ Introduzir jogador</button><button class="btn" data-action="openTM">↗ Abrir TM</button><button class="btn" data-action="backupFull">⇧ Backup de oportunidades</button></div>
+ <div class="row-buttons"><button class="btn primary" data-action="investmentNew">＋ Introduzir jogador</button><button class="btn" data-action="openTMMarket">↗ Abrir mercado TM</button><button class="btn" data-action="backupFull">⇧ Backup de oportunidades</button></div>
  <label class="form-label">Importar jogador para análise (JSON ou CSV)<input id="marketImportFile" type="file" accept=".json,.csv,application/json,text/csv" /></label><textarea id="marketPaste" rows="3" placeholder="Cola a ficha do jogador em JSON ou CSV"></textarea><button class="btn primary" data-action="marketImport">⇩ Importar jogador</button>
  <p class="info">Sem acesso automático ao mercado e sem licitações. Guarda jogadores da lista de transferências para acompanhar preços e decidir comprar, treinar ou vender.</p></section>
  ${form}
@@ -434,9 +435,9 @@ function acceptImport(players,club='',clubCountry=''){const previous=new Map(db.
 async function consumeNativeImport(){if(!isNative)return;
  try{const r=await TMBridge.consumeImport();if(r?.json){const payload=JSON.parse(r.json);acceptImport(normalizeRoster(payload.players||payload),payload.club||'',payload.clubCountry||'');}}catch(e){notify('Não foi possível importar: '+e.message,true);}
  try{const result=await TMBridge.consumeRival();if(result?.json){const data=JSON.parse(result.json);const players=normalizeRoster(data.players);state.rivalCandidate={players,url:data.url||''};state.tab='adversario';render();notify('Jogadores encontrados. Confirma o clube antes de guardar.');}}catch(e){notify('Falha na leitura do plantel rival: '+e.message,true);}
- try{const result=await TMBridge.consumePreview();if(result?.json){db.preview=parsePreviewCapture(JSON.parse(result.json),db.club);state.tab='adversario';persist();render();notify('Preview importado. Confirma o adversário antes de prosseguir.');}}catch(e){notify('Falha na leitura do preview: '+e.message,true);}
+ try{const result=await TMBridge.consumePreview();if(result?.json){const payload=JSON.parse(result.json);if(payload.kind==='marketPlayer'){state.marketDraft=parseMarketProfile(payload);state.investmentEdit='new';state.tab='investir';render();notify('Perfil recebido. Confirma posição, atributos e preços antes de guardar.');}else{db.preview=parsePreviewCapture(payload,db.club);state.tab='adversario';persist();render();notify('Preview importado. Confirma o adversário antes de prosseguir.');}}}catch(e){notify('Falha na leitura do preview: '+e.message,true);}
 }
-async function openTM(page='players'){if(!isNative){window.open(page==='home'?'https://trophymanager.com/home/':'https://trophymanager.com/players/','_blank','noopener,noreferrer');return;}
+async function openTM(page='players'){if(!isNative){window.open(page==='market'?'https://trophymanager.com/transfer/':page==='home'?'https://trophymanager.com/home/':'https://trophymanager.com/players/','_blank','noopener,noreferrer');return;}
  try{await TMBridge.openBrowser({page});}catch(e){notify('Navegador não disponível nesta compilação. '+e.message,true);}}
 function onClick(e){const el=e.target.closest('[data-action],[data-tab],[data-form],[data-player]');if(!el)return;
  const action=el.dataset.action;if(action==='closeModal'){if(e.target.closest('.modal')&&!e.target.classList.contains('close'))return;state.detail=null;render();return;}
@@ -514,6 +515,7 @@ function onClick(e){const el=e.target.closest('[data-action],[data-tab],[data-fo
   const blob=new Blob([JSON.stringify({schema:'rjp-tm-opponent-v2',opponent:db.opponent,rivalRoster:db.rivalRoster,rivalCountry:db.rivalCountry},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='RJP_TM_Adversario.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);return;
  }
+ if(action==='openTMMarket'){openTM('market');return;}
  if(action==='openTM'){openTM();return;}
  if(action==='openTMCalendar'){openTM('home');return;}
  if(action==='openTMRival'){openTM('home');return;}
