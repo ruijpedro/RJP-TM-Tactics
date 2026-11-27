@@ -9,6 +9,7 @@ const finite=(v,min=0,max=1e12)=>{
  return s!==''&&Number.isFinite(n)&&n>=min&&n<=max?n:0;
 };
 const string=(s,max=100)=>String(s??'').replace(/<[^>]*>/g,'').trim().slice(0,max);
+const dateOnly=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v?v:'';
 export function investmentCandidate(input={}){
  if(!input||typeof input!=='object')throw new Error('Ficha de candidato inválida.');
  const name=string(input.name||input.nome||'',95),fp=string(input.fp||input.position||input.posicao||'',60);
@@ -17,6 +18,7 @@ export function investmentCandidate(input={}){
  age:finite(input.age,0,50),rec:finite(input.rec,0,10),asi:finite(input.asi,0,1e8),routine:finite(input.routine,0,200),
  condition:100,inj:'',ban:'',excluded:false,foreign:null,
  buy:finite(input.buy??input.price,0,1e12),comparablePrice:finite(input.comparablePrice,0,1e12),wage:finite(input.wage,0,1e12),weeks:Math.max(1,Math.min(520,Math.round(finite(input.weeks==null||input.weeks===''?12:input.weeks,0,520)))),
+ auctionDate:dateOnly(input.auctionDate),resaleDate:dateOnly(input.resaleDate),
  targetRoi:finite(input.targetRoi==null||input.targetRoi===''?20:input.targetRoi,0,1000),feePct:finite(input.feePct,0,100),otherCosts:finite(input.otherCosts,0,1e12),
  saleLow:finite(input.saleLow,0,1e12),saleMid:finite(input.saleMid,0,1e12),saleHigh:finite(input.saleHigh,0,1e12),
  scoutPotential:input.scoutPotential==null||input.scoutPotential===''?null:finite(input.scoutPotential,1,20)||null,
@@ -27,6 +29,7 @@ export function investmentCandidate(input={}){
  scoutDevelopmentSkill:finite(input.scoutDevelopmentSkill,1,20)||null,
  targetPosition:POSITIONS.includes(input.targetPosition)?input.targetPosition:'',
  url:string(input.url,500),notes:string(input.notes,600),createdAt:string(input.createdAt||new Date().toISOString().slice(0,10),16)};
+ if(c.resaleDate){const start=c.auctionDate||dateOnly(c.createdAt);const days=(Date.parse(c.resaleDate)-Date.parse(start))/86400000;if(!Number.isFinite(days)||days<0||days>3640)throw new Error('Data de revenda inválida: deve ser posterior ou igual à compra prevista, até 10 anos.');c.weeks=Math.max(1,Math.ceil(days/7));}
  for(const k of ALL_SKILLS)c[k]=finite(input[k]??input.skills?.[k],0,20);
  // Não inferimos estrelas de potencial nem preço futuro com base no R5.
  return c;
