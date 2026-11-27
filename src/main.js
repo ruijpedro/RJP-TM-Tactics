@@ -1,3 +1,4 @@
+import {confirmOtaReady,checkOtaUpdate,installOtaUpdate} from './ota.js';
 import './style.css';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { demoPlayers } from './demo.js';
@@ -9,6 +10,7 @@ import { parsePreviewCapture } from './preview.js';
 import {predictRival,compareWithRival,rivalGamePlan} from './rival.js';
 import {playerSnapshot,mergeSnapshot,snapshotsFor,progressionReport,sanitizeHistory} from './progression.js';
 import {investmentCandidate,investmentAnalysis,sanitizeInvestmentList} from './investment.js';
+import {candidateSquadImpact} from './scouting.js';
 const STORAGE='rjp_tm_tactics_v1';
 const TMBridge=registerPlugin('TMBridge');
 let db;
@@ -39,7 +41,7 @@ function render(){
  const result=compareFormations(db.players,db.formations,quotaOptions);let selection=result[0]||null;
  if(state.formation!=='auto')selection=result.find(r=>r.name===state.formation)||selection;
  $('app').innerHTML=`
- <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.9.0</small></div></div><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
+ <header class="topbar"><div class="brand"><img src="./icons/icon.svg" alt=""/><div><strong>RJP TM <em>TACTICS</em></strong><small>ASSISTENTE DE TREINADOR · V1.10.0</small></div></div><button class="top-action" id="otaCheck" title="Verificar atualização">↻ Atualizar</button><button class="top-action" data-action="openTM" title="Abrir Trophy Manager">↗ <span>Jogar TM</span></button></header>
  <main class="main">
   <section class="topnote ${db.demo?'demo':'real'}"><span class="dot"></span>${db.demo?'MODO DEMONSTRAÇÃO — 23 jogadores fictícios':safe(db.club||'PLANTEL IMPORTADO')+' · '+db.players.length+' jogadores'}<span class="small">${db.demo?'Importa o teu plantel real para obter recomendações úteis.':db.updated?'Atualizado '+new Date(db.updated).toLocaleString('pt-PT'):''}</span></section>
   ${state.tab==='analise'?renderAnalysis(selection,result):state.tab==='plantel'?renderSquad():state.tab==='comparar'?renderCompare():state.tab==='taticas'?renderTactics():state.tab==='desenvolver'?renderDevelopment():state.tab==='adversario'?renderOpponent(result):state.tab==='investir'?renderInvestments():state.tab==='importar'?renderImport():renderSettings()}
@@ -229,12 +231,24 @@ function renderInvestments(){
  const money=v=>Number(v||0).toLocaleString('pt-PT',{maximumFractionDigits:0});
  const list=db.investments||[];
  const reports=list.map(c=>investmentAnalysis(c));
- const cards=reports.map(({candidate:c,best,favourite,compatible,economy,decision,notes,discount,target,training})=>{
+ const cards=reports.map(({candidate:c,best,favourite,compatible,economy,bid,scout,decision,notes,discount,target,training})=>{
+  const impact=candidateSquadImpact(c,db.demo?[]:db.players);
+  const upgrades=impact.roles.filter(x=>x.improvement!==null&&x.improvement>=3&&x.fit>=70).slice(0,3);
+  const comparisons=impact.roles.filter(x=>x.benchmark&&x.fit>=70).slice(0,4);
   const safeId=safe(c.id);
   const future=economy.mid?`${economy.mid.net>=0?'+':''}${money(economy.mid.net)} · ROI ${economy.mid.roi==null?'—':num(economy.mid.roi)+'%'}`:'Sem estimativa de venda';
   return `<article class="market-invest-card">
    <div class="section-head"><div><h3>${safe(c.name)}</h3><p>${safe(c.fp)} · ${c.age||'?'} anos · compra ${money(c.buy)}</p></div><span class="change-pill">${safe(decision)}</span></div>
    <div class="market-invest-metrics"><div><small>Melhor posição estimada</small><b>${best?safe(best.pos)+' · '+num(best.effective)+'/100':'Sem atributos'}</b></div><div><small>Origem / favorita</small><b>${favourite?safe(favourite.pos)+' · '+num(favourite.effective)+'/100':'Por confirmar'}</b></div><div><small>Ponto de equilíbrio</small><b>${economy.breakEven===null?'Sem valor':money(economy.breakEven)}</b></div><div><small>Venda intermédia</small><b class="${economy.mid?.net>=0?'potential-profit':'potential-loss'}">${future}</b></div></div>
+   <div class="market-invest-metrics"><div><small>Preço ideal de compra</small><b>${bid.ideal===null?'Sem estimativa':money(bid.ideal)}</b></div><div><small>Licitação máxima · ROI ${num(c.targetRoi)}%</small><b>${bid.maximum===null?'Sem estimativa':money(bid.maximum)}</b></div><div><small>Teto sem prejuízo</small><b>${bid.breakEven===null?'Sem estimativa':money(bid.breakEven)}</b></div></div>
+   <p class="tip"><b>${safe(bid.status)}</b> · ${safe(bid.basis||'Introduz um cenário de revenda')} · Confiança: ${safe(bid.confidence||'Insuficiente')} · estimativa condicionada aos custos e referência de mercado.</p>
+   <div class="market-squad-comparison"><h4>Relatório do olheiro</h4><p class="tiny">Potencial: ${c.scoutPotential??'Desconhecido'} · ${safe(scout.confidence)}</p>${scout.risks.map(x=>`<p class="tiny">${safe(x)}</p>`).join('')}${scout.avoidGrowthInvestment?'<p class="warning"><b>Não recomendado para investimento em evolução.</b> O teto financeiro não é autorização de compra; confirma o relatório.</p>':''}</div>
+   <div class="market-squad-comparison"><h4>Impacto na tua equipa · 3-2-3-1-1</h4>
+   ${db.demo?'<p class="tiny">Importa o teu plantel real para obter comparações.</p>':
+    upgrades.length?`<p class="tip"><b>Pode melhorar o onze:</b> ${upgrades.map(x=>safe(x.pos)+' (+ '+num(x.improvement)+' pontos face ao jogador de referência)').join(' · ')}</p>`:
+    '<p class="tiny">Sem melhoria clara de titularidade nesta análise posicional. Pode ser útil para rotação ou desenvolvimento.</p>'}
+   ${comparisons.map(x=>`<p class="tiny"><b>${safe(x.pos)}</b> · candidato ${num(x.candidateScore)} / 100 · referência ${safe(x.benchmark.name)} ${num(x.benchmark.score)} / 100 · diferença ${x.improvement>0?'+':''}${num(x.improvement)} · compatibilidade ${x.fit}%</p>`).join('')}
+   <p class="tiny">Comparação heurística por posição. A mudança de posição favorita não é garantida e o efeito no onze global precisa de validação.</p></div>
    ${discount!=null?`<p class="tip">Referência de anúncios comparáveis: ${money(c.comparablePrice)} · diferença ${discount>0?'-':''}${num(Math.abs(discount))}% ${discount>0?'abaixo':discount<0?'acima':'igual'} ao comparável introduzido.</p>`:''}
    ${training?.priorities?.length?`<p class="tiny"><b>Treino proposto para ${safe(training.position)}:</b> ${training.priorities.slice(0,3).map(p=>safe(p.label)).join(' · ')}.</p>`:''}
    ${compatible.length?`<p class="tiny">Alternativas posicionais tecnicamente compatíveis: ${compatible.map(v=>`${safe(v.pos)} (${Math.round(v.fit*100)}%)`).join(' · ')}. A posição oficial do TM não é alterada.</p>`:''}
@@ -249,7 +263,9 @@ function renderInvestments(){
  const input=(key,title,extra='')=>`<label>${safe(title)}<input name="${key}" value="${safe(current?.[key]??'')}" ${extra} /></label>`;
  const attrs=fields.map(k=>`<label>${safe(LABELS[k]||k)}<input type="number" min="0" max="20" step="1" name="${k}" value="${current?.[k]??''}" /></label>`).join('');
  const form=current!==undefined?`<section class="panel"><h2>${state.investmentEdit==='new'?'Adicionar candidato':'Editar candidato'}</h2><p class="tiny">Atributos reais do TM quando disponíveis. Não é necessário preencher todos, mas análises incompletas são sinalizadas.</p><form id="investmentForm">
- <div class="form-grid">${input('name','Nome do jogador','required maxlength="95"')}${input('fp','Posição favorita (ex.: M C, D L, F)','required maxlength="60"')}${input('age','Idade','type="number" min="0" max="50"')}${input('routine','Rotina','type="number" min="0" max="200"')}${input('rec','REC','type="number" min="0" max="10" step="0.01"')}${input('asi','ASI','type="number" min="0"')}${input('buy','Preço de compra','type="number" min="0"')}${input('comparablePrice','Preço observado de comparáveis','type="number" min="0"')}${input('wage','Salário semanal','type="number" min="0"')}${input('weeks','Semanas até à venda','type="number" min="1" max="520"')}${input('feePct','Comissões/custos da venda (%)','type="number" min="0" max="100" step="0.1"')}${input('otherCosts','Outros custos','type="number" min="0"')}${input('saleLow','Venda pessimista (estimativa tua)','type="number" min="0"')}${input('saleMid','Venda provável (estimativa tua)','type="number" min="0"')}${input('saleHigh','Venda otimista (estimativa tua)','type="number" min="0"')}${input('url','Ligação ao jogador no TM','type="url" maxlength="500"')}</div>
+ <div class="form-grid">${input('name','Nome do jogador','required maxlength="95"')}${input('fp','Posição favorita (ex.: M C, D L, F)','required maxlength="60"')}${input('age','Idade','type="number" min="0" max="50"')}${input('routine','Rotina','type="number" min="0" max="200"')}${input('rec','REC','type="number" min="0" max="10" step="0.01"')}${input('asi','ASI','type="number" min="0"')}${input('buy','Preço de compra','type="number" min="0"')}${input('comparablePrice','Preço observado de comparáveis','type="number" min="0"')}${input('wage','Salário semanal','type="number" min="0"')}${input('weeks','Semanas até à venda','type="number" min="1" max="520"')}${input('targetRoi','Rentabilidade mínima (%) · padrão 20','type="number" min="0" max="1000" step="0.1"')}${input('feePct','Comissões/custos da venda (%)','type="number" min="0" max="100" step="0.1"')}${input('otherCosts','Outros custos','type="number" min="0"')}${input('saleLow','Venda pessimista (estimativa tua)','type="number" min="0"')}${input('saleMid','Venda provável (estimativa tua)','type="number" min="0"')}${input('saleHigh','Venda otimista (estimativa tua)','type="number" min="0"')}${input('url','Ligação ao jogador no TM','type="url" maxlength="500"')}</div>
+ <details open><summary>Relatório do olheiro</summary><div class="form-grid">${input('scoutPotential','Potencial (1–20)','type="number" min="1" max="20"')}${input('scoutProfessionalism','Profissionalismo (1–5)','type="number" min="1" max="5"')}${input('scoutYouth','Competência Jovens do olheiro','type="number" min="1" max="20"')}${input('scoutDevelopmentSkill','Competência Desenvolvimento do olheiro','type="number" min="1" max="20"')}
+${[['scoutDevelopment','Desenvolvimento',[['','Desconhecido'],['early','Inicial'],['middle','Intermédio'],['nearComplete','Quase completo'],['complete','Completo']]],['scoutBloom','Explosão',[['','Desconhecida'],['before','Antes'],['middle','A meio'],['after','Depois']]]].map(([k,label,opts])=>`<label>${label}<select name="${k}">${opts.map(([v,t])=>`<option value="${v}" ${current?.[k]===v?'selected':''}>${t}</option>`).join('')}</select></label>`).join('')}</div></details>
  <label class="form-label">Posição-alvo para treino / valorização<select name="targetPosition" class="select"><option value="">A sugerida pela APP</option>${POSITIONS.map(pos=>`<option value="${pos}" ${current?.targetPosition===pos?'selected':''}>${pos} · ${safe(POSITION_NAMES[pos])}</option>`).join('')}</select></label>
  <label class="form-label">Notas do scout<textarea name="notes" rows="3" maxlength="600">${safe(current?.notes||'')}</textarea></label>
  <details class="market-attributes" ${state.investmentEdit==='new'?'open':''}><summary>Atributos do jogador (0–20)</summary><div class="skill-input-grid">${attrs}</div></details>
@@ -588,3 +604,14 @@ window.addEventListener('focus',()=>{if(isNative)consumeNativeImport();});
 if(isNative){document.addEventListener('visibilitychange',()=>{if(!document.hidden)consumeNativeImport();});setInterval(()=>{if(!document.hidden)consumeNativeImport();},5000);setTimeout(consumeNativeImport,250);}
 if(!isNative&&'serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
 render();
+
+let otaBusy=false;
+document.addEventListener('click',async e=>{
+ if(!e.target.closest('#otaCheck')||otaBusy)return;
+ if(!isNative){location.reload();return;}
+ otaBusy=true;
+ try{const update=await checkOtaUpdate();if(!update){notify('Aplicação atualizada.');return;}
+ if(confirm('Instalar atualização '+update.version+'?')){persist();await installOtaUpdate(update);}
+ }catch(err){notify('OTA: '+err.message,true);}finally{otaBusy=false;}
+});
+if(isNative)confirmOtaReady().catch(err=>console.warn('OTA readiness',err));

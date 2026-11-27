@@ -17,8 +17,14 @@ export function investmentCandidate(input={}){
  age:finite(input.age,0,50),rec:finite(input.rec,0,10),asi:finite(input.asi,0,1e8),routine:finite(input.routine,0,200),
  condition:100,inj:'',ban:'',excluded:false,foreign:null,
  buy:finite(input.buy??input.price,0,1e12),comparablePrice:finite(input.comparablePrice,0,1e12),wage:finite(input.wage,0,1e12),weeks:Math.max(1,Math.min(520,Math.round(finite(input.weeks==null||input.weeks===''?12:input.weeks,0,520)))),
- feePct:finite(input.feePct,0,100),otherCosts:finite(input.otherCosts,0,1e12),
+ targetRoi:finite(input.targetRoi==null||input.targetRoi===''?20:input.targetRoi,0,1000),feePct:finite(input.feePct,0,100),otherCosts:finite(input.otherCosts,0,1e12),
  saleLow:finite(input.saleLow,0,1e12),saleMid:finite(input.saleMid,0,1e12),saleHigh:finite(input.saleHigh,0,1e12),
+ scoutPotential:input.scoutPotential==null||input.scoutPotential===''?null:finite(input.scoutPotential,1,20)||null,
+ scoutDevelopment:['early','middle','nearComplete','complete'].includes(input.scoutDevelopment)?input.scoutDevelopment:'',
+ scoutBloom:['before','middle','after'].includes(input.scoutBloom)?input.scoutBloom:'',
+ scoutProfessionalism:finite(input.scoutProfessionalism,1,5)||null,
+ scoutYouth:finite(input.scoutYouth,1,20)||null,
+ scoutDevelopmentSkill:finite(input.scoutDevelopmentSkill,1,20)||null,
  targetPosition:POSITIONS.includes(input.targetPosition)?input.targetPosition:'',
  url:string(input.url,500),notes:string(input.notes,600),createdAt:string(input.createdAt||new Date().toISOString().slice(0,10),16)};
  for(const k of ALL_SKILLS)c[k]=finite(input[k]??input.skills?.[k],0,20);
@@ -53,6 +59,32 @@ export function resaleScenario(candidate){
  return {invested,holding,breakEven,low:calc(c.saleLow),mid:calc(c.saleMid),high:calc(c.saleHigh),rate,
   hasPrices:!!(c.saleLow||c.saleMid||c.saleHigh)};
 }
+/** Limite financeiro condicionado aos cenários introduzidos; não é uma cotação TM. */
+/** Referência observada não é uma venda confirmada; desconto prudencial configurado no motor. */
+export function marketReference(candidate){
+ const c=investmentCandidate(candidate);
+ if(c.saleLow||c.saleMid)return {sale:c.saleLow||c.saleMid,basis:c.saleLow?'Venda pessimista':'Venda provável',confidence:'Cenário manual'};
+ if(c.comparablePrice>0)return {sale:Math.floor(c.comparablePrice*0.8),basis:'Comparável observado com desconto prudencial de 20%',confidence:'Baixa'};
+ return {sale:0,basis:null,confidence:'Insuficiente'};
+}
+export function bidLimits(candidate){
+ const c=investmentCandidate(candidate), costs=c.wage*c.weeks+c.otherCosts, rate=c.feePct/100;
+ const reference=marketReference(c), sale=reference.sale;
+ if(!sale||rate>=1)return {maximum:null,ideal:null,breakEven:null,status:'Sem dados suficientes',basis:null};
+ const net=sale*(1-rate), roi=c.targetRoi/100;
+ const maximum=Math.max(0,Math.floor(net/(1+roi)-costs));
+ const ideal=Math.max(0,Math.floor(net/(1+Math.max(roi*2,roi+0.1))-costs));
+ const breakEven=Math.max(0,Math.floor(net-costs));
+ return {maximum,ideal,breakEven,basis:reference.basis,confidence:reference.confidence,status:maximum===0?'Sem margem para comprar':!c.buy?'Introduz a licitação':c.buy>maximum?'Não aumentar a licitação':c.buy<=ideal?'Excelente oportunidade (condicional)':'Dentro do limite (condicional)'};
+}
+export function scoutInvestment(candidate){
+ const c=investmentCandidate(candidate), risks=[];
+ if(c.scoutPotential!==null&&c.scoutPotential<=11)risks.push('Potencial estimado limitado');
+ if(['nearComplete','complete'].includes(c.scoutDevelopment))risks.push('Desenvolvimento quase completo ou completo');
+ if(c.scoutProfessionalism!==null&&c.scoutProfessionalism<=2)risks.push('Profissionalismo baixo');
+ const confidence=c.scoutPotential===null?'Sem relatório':c.scoutYouth>=17&&c.scoutDevelopmentSkill>=17?'Competências relevantes elevadas':'Confirmar com segundo olheiro';
+ return {risks,confidence,avoidGrowthInvestment:c.age>0&&c.age<=23&&risks.length>=2};
+}
 export function investmentAnalysis(candidate){
  const c=investmentCandidate(candidate),positions=investmentPositions(c);
  const fav=positions.filter(p=>p.natural).sort((a,b)=>b.effective-a.effective)[0]||null;
@@ -75,5 +107,5 @@ export function investmentAnalysis(candidate){
  if(!c.feePct)notes.push('Comissão a 0% por omissão; introduz custos efetivos caso existam.');
  const score=best?.effective??null;
  const decision=!economy.hasPrices||!positions.length?'Dados insuficientes':economy.low?.net<0&&economy.mid?.net<0&&economy.high?.net<0?'Risco elevado':economy.mid?.net>0?'Potencial de valorização (condicional)':'Comparar alternativas';
- return {candidate:c,positions,favourite:fav,best,compatible,technical,economy,notes,score,decision,discount,target,training};
+ return {candidate:c,positions,favourite:fav,best,compatible,technical,economy,bid:bidLimits(c),scout:scoutInvestment(c),notes,score,decision,discount,target,training};
 }
